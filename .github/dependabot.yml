@@ -5,6 +5,13 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    ignore:
+      # zod major bumps are a breaking API migration, not a dependency update.
+      # Its schemas are the published MCP tool contract, the CR/LF refinements
+      # that block header injection, the recipient and move policies, and the
+      # startup configuration checks. Migrate on a dedicated branch instead.
+      - dependency-name: zod
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directory: /
