@@ -1,0 +1,51 @@
+{
+  "name": "mail-mcp-suite",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Security-focused IMAP reader and approval-gated mail actions for MCP clients",
+  "license": "AGPL-3.0-only",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "imap",
+    "smtp",
+    "email",
+    "llm",
+    "claude",
+    "cloudflare-tunnel"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "smoke": "node --import tsx tests/integration-smoke.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "start:reader": "node dist/reader/index.js",
+    "start:actions": "node dist/actions/index.js",
+    "start:worker": "node dist/worker/index.js",
+    "verify:imap": "node dist/reader/verify-imap.js",
+    "verify:smtp": "node dist/worker/verify-smtp.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "express": "5.2.1",
+    "express-rate-limit": "8.6.0",
+    "imapflow": "1.5.0",
+    "jose": "6.2.4",
+    "mailparser": "3.9.14",
+    "nodemailer": "9.0.3",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/mailparser": "3.4.6",
+    "@types/node": "22.20.1",
+    "@types/nodemailer": "6.4.24",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

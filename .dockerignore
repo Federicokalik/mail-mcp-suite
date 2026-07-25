@@ -1,0 +1,17 @@
+node_modules
+dist
+coverage
+.git
+.env
+local-config
+data
+secrets
+tests
+*.log
+outbox.backup.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.eml
+*.mbox

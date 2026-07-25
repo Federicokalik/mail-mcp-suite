@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.env
+*.log
+data/
+local-config/
+outbox.backup.json
+secrets/*
+!secrets/README.md
+!secrets/README.it.md
+*.pem
+*.key
+*.p12
+*.pfx
+*.eml
+*.mbox

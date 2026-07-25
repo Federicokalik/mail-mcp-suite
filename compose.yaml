@@ -1,0 +1,191 @@
+name: mail-mcp
+
+x-security: &security
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 100
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  reader:
+    <<: *security
+    build:
+      context: .
+    image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
+    command: ["node", "dist/reader/index.js"]
+    env_file:
+      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/reader.env
+        required: true
+    environment:
+      NODE_OPTIONS: --max-old-space-size=256
+    secrets:
+      - reader_mcp_token
+      - imap_password
+    ports:
+      - "${MAIL_MCP_BIND_ADDRESS:-127.0.0.1}:3333:3333"
+    networks:
+      - egress
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 384m
+    cpus: 0.75
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3333/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  actions:
+    <<: *security
+    image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
+    command: ["node", "dist/actions/index.js"]
+    env_file:
+      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/actions.env
+        required: true
+    environment:
+      NODE_OPTIONS: --max-old-space-size=128
+    secrets:
+      - actions_mcp_token
+      - queue_api_token
+    networks:
+      - control
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 192m
+    cpus: 0.50
+    depends_on:
+      worker:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3334/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  actions-proxy:
+    <<: *security
+    image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
+    command: ["node", "dist/proxy/index.js"]
+    env_file:
+      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/actions-proxy.env
+        required: true
+    environment:
+      NODE_OPTIONS: --max-old-space-size=64
+      PROXY_HOST: 0.0.0.0
+      PROXY_PORT: "3334"
+      PROXY_TARGET: http://actions:3334
+      PROXY_TIMEOUT_MS: "30000"
+      MCP_TOKEN_FILE: /run/secrets/actions_mcp_token
+    secrets:
+      - actions_mcp_token
+    ports:
+      - "${MAIL_MCP_BIND_ADDRESS:-127.0.0.1}:3334:3334"
+    networks:
+      - control
+      - egress
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    mem_limit: 96m
+    cpus: 0.25
+    depends_on:
+      actions:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3334/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    <<: *security
+    image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
+    command: ["node", "dist/worker/index.js"]
+    env_file:
+      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/worker.env
+        required: true
+    environment:
+      NODE_OPTIONS: --max-old-space-size=192
+    secrets:
+      - queue_api_token
+      - approval_secret
+      - approval_csrf_secret
+      - smtp_password
+      - imap_password
+    ports:
+      - "${MAIL_MCP_BIND_ADDRESS:-127.0.0.1}:7337:7337"
+    networks:
+      - control
+      - egress
+    volumes:
+      - outbox:/data
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 256m
+    cpus: 0.50
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:7337/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  control:
+    internal: true
+  egress: {}
+
+volumes:
+  outbox: {}
+
+secrets:
+  reader_mcp_token:
+    file: ${MAIL_MCP_CONFIG_DIR:-./local-config}/secrets/reader_mcp_token
+  actions_mcp_token:
+    file: ${MAIL_MCP_CONFIG_DIR:-./local-config}/secrets/actions_mcp_token
+  queue_api_token:
+    file: ${MAIL_MCP_CONFIG_DIR:-./local-config}/secrets/queue_api_token
+  approval_secret:
+    file: ${MAIL_MCP_CONFIG_DIR:-./local-config}/secrets/approval_secret
+  approval_csrf_secret:
+    file: ${MAIL_MCP_CONFIG_DIR:-./local-config}/secrets/approval_csrf_secret
+  imap_password:
+    file: ${MAIL_MCP_CONFIG_DIR:-./local-config}/secrets/imap_password
+  smtp_password:
+    file: ${MAIL_MCP_CONFIG_DIR:-./local-config}/secrets/smtp_password
