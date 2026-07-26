@@ -75,8 +75,14 @@ Ogni variabile d'ambiente è documentata in
 
 ## Avvio rapido
 
-Requisiti: Docker Compose v2 e un account di posta che offra IMAP e SMTP su
-TLS. Node.js 20.11 o successivo serve solo per le verifiche locali.
+Requisiti: Docker Compose v2 e un account di posta che offra IMAP e SMTP su TLS.
+Node.js serve solo per compilare dai sorgenti o eseguire le verifiche in locale.
+
+L'intero stack si configura con un solo file. Le password non stanno lì: sono
+Docker secret, montati solo nei servizi che ne hanno bisogno.
+
+**1. Configurazione.** Copiare l'esempio e modificarlo — hostname di posta,
+utente, mittente, nomi delle mailbox e `APPROVAL_TIMEZONE`:
 
 ```sh
 cp config/mail-mcp.env.example .env
@@ -85,24 +91,36 @@ chmod 600 .env
 chmod 700 local-config local-config/secrets
 ```
 
-Modificare `.env`, quindi creare i sette file di segreti elencati in
-[secrets/README.it.md](secrets/README.it.md). Generare ogni token macchina in modo indipendente:
+**2. Segreti.** Creare i sette file elencati in
+[secrets/README.it.md](secrets/README.it.md), un valore per file. Generare ogni
+token macchina in modo indipendente e usare una passphrase umana distinta per
+`approval_secret`:
 
 ```sh
 openssl rand -hex 32
 ```
 
-Validare e avviare:
+**3. Avvio.** Puntare `MAIL_MCP_IMAGE` nel `.env` a un'immagine pubblicata:
+
+```dotenv
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.0.0
+```
 
 ```sh
-npm ci --ignore-scripts
-npm run check
 docker compose config
-docker compose build
+docker compose pull
 docker compose up -d
 ```
 
-Controlli di stato:
+Per compilare dai sorgenti, aggiungere invece l'override di build:
+
+```sh
+npm ci --ignore-scripts && npm run check
+docker compose -f compose.yaml -f compose.build.yaml build
+docker compose up -d
+```
+
+**4. Verifica.**
 
 ```sh
 curl --fail http://127.0.0.1:3333/healthz
