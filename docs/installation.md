@@ -73,11 +73,27 @@ ownership narrowly. Do not make the files world-readable.
 
 ## 3. Validate and start
 
+Tagged releases publish a multi-architecture image to GHCR. To use it, point
+`MAIL_MCP_IMAGE` at the tag you want and skip the build:
+
+```dotenv
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:2.1.0
+```
+
+```sh
+docker compose config
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+To build from source instead, add the build override:
+
 ```sh
 npm ci --ignore-scripts
 npm run check
 docker compose config
-docker compose build
+docker compose -f compose.yaml -f compose.build.yaml build
 docker compose up -d
 docker compose ps
 ```

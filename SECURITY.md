@@ -101,6 +101,50 @@ The approval page is separately protected by:
 
 An approval URL is sensitive even though it is insufficient by itself.
 
+## In-chat approval
+
+The same proposal can also be reviewed in an MCP App: an HTML view Actions
+serves as a `ui://` resource, which the host renders inside a sandboxed iframe
+in the conversation. Both properties the browser page provides are preserved.
+
+The model cannot approve. No MCP tool approves a proposal; Actions still has no
+`APPROVAL_SECRET`. The app talks to the Worker directly, over the same routes
+the browser form uses.
+
+What is approved is what was proposed. The view is built from the stored
+proposal by the Worker, not summarized by the model, and it renders the full
+body so the reviewer sees the real message.
+
+The app is handed a per-proposal capability token in the tool result `_meta`,
+which hosts are expected to route to the app rather than into the model's
+context. Do not rely on that alone: the design assumes the token may leak. It is
+an HMAC over proposal id, creation time, and a distinct action label, so it is
+neither a CSRF token nor valid for another proposal. On its own it permits
+reading one proposal; approving additionally requires the CSRF signature and the
+human approval secret, and the rate limiter is shared with the browser form.
+
+The message body and the approval secret never traverse the MCP host. Actions
+returns the same redacted summary as before, and the secret is typed into the
+iframe and posted straight to the Worker. Neither can end up in a conversation
+transcript or in a host's logs.
+
+The three app routes (`/approval/:id/app`, `app-approve`, `app-cancel`) answer
+CORS requests from a null origin and do not use cookies, which is what lets a
+sandboxed iframe reach them. In the tunneled deployment they need an Access
+exception; see [docs/cloudflare.md](docs/cloudflare.md) for the scoped policy
+and what it trades away. Without that exception the feature degrades to the
+elicitation prompt or the plain URL, both of which keep the Access-protected
+page in a browser.
+
+Terminal clients instead receive a URL-mode elicitation pointing at the browser
+page. Only the URL travels through the client. `APPROVAL_WAIT_MS` bounds how
+long the tool call waits before returning; the proposal stays valid until it
+expires either way.
+
+Actions runs the MCP transport in stateful mode so that elicitation, a
+server-initiated request, can be delivered. Sessions are capped and evicted
+when idle. The Reader remains stateless.
+
 ## Persistent data
 
 `outbox.json` contains message bodies, recipients, proposal notes, and move
@@ -169,9 +213,10 @@ Review advisories in context, but do not apply breaking or forced dependency
 changes without tests. Pin container base images and update them intentionally.
 Run a secret scanner against the complete Git history, not only the current tree.
 
-At version 2.0.0, `npm audit` reports
+At version 2.1.0, `npm audit` reports
 [`GHSA-frvp-7c67-39w9`](https://github.com/advisories/GHSA-frvp-7c67-39w9)
-through the production MCP SDK dependency. The advisory concerns the Hono Node
+through the production MCP SDK dependency, now reached both directly and through
+`@modelcontextprotocol/ext-apps`. The advisory concerns the Hono Node
 adapter's static-file middleware on Windows. This project runs in a Linux
 container and does not import or invoke that middleware, so the vulnerable path is
 not reachable in the documented deployment. The current v1 MCP SDK still pins the

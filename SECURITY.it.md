@@ -101,6 +101,53 @@ La pagina di approvazione è protetta separatamente da:
 
 Un URL di approvazione è sensibile anche se da solo non è sufficiente.
 
+## Approvazione in chat
+
+La stessa proposta può essere esaminata anche in una MCP App: una vista HTML che
+Actions serve come risorsa `ui://` e che il client renderizza in un iframe
+sandboxed dentro la conversazione. Entrambe le proprietà garantite dalla pagina
+nel browser restano valide.
+
+Il modello non può approvare. Nessuno strumento MCP approva una proposta e
+Actions continua a non possedere `APPROVAL_SECRET`. L'app parla direttamente col
+Worker, sulle stesse rotte usate dal form nel browser.
+
+Ciò che si approva è ciò che è stato proposto. La vista è costruita dal Worker a
+partire dalla proposta memorizzata, non riassunta dal modello, e mostra il corpo
+integrale, così chi revisiona vede il messaggio reale.
+
+All'app viene consegnato un token di capacità, valido per una sola proposta, nel
+`_meta` del risultato dello strumento, che i client dovrebbero instradare verso
+l'app anziché nel contesto del modello. Non fare affidamento solo su questo: il
+progetto assume che il token possa trapelare. Il token è un HMAC su id della proposta,
+momento di creazione ed etichetta d'azione distinta: non è quindi un token CSRF
+e non vale per un'altra proposta. Da solo consente di leggere una proposta; per
+approvare servono in più la firma CSRF e il segreto umano di approvazione, e il
+rate limiter è condiviso con il form nel browser.
+
+Il corpo del messaggio e il segreto di approvazione non attraversano mai l'host
+MCP. Actions restituisce lo stesso riepilogo ridotto di prima, e il segreto
+viene digitato nell'iframe e inviato direttamente al Worker. Nessuno dei due può
+finire nel transcript della conversazione o nei log del client.
+
+Le tre rotte dell'app (`/approval/:id/app`, `app-approve`, `app-cancel`)
+rispondono a richieste CORS con origine nulla e non usano cookie: è questo che
+permette a un iframe sandboxed di raggiungerle. Nel deployment con tunnel
+richiedono un'eccezione Access; vedere [docs/cloudflare.it.md](docs/cloudflare.it.md)
+per la policy mirata e per ciò a cui si rinuncia. Senza quell'eccezione la
+funzione degrada al prompt di elicitation o all'URL testuale, che mantengono
+entrambi la pagina protetta da Access nel browser.
+
+I client da terminale ricevono invece un'elicitation in URL mode che punta alla
+pagina nel browser. Dal client passa soltanto l'URL. `APPROVAL_WAIT_MS` limita
+quanto a lungo la chiamata attende prima di rispondere; in ogni caso la proposta
+resta valida fino alla scadenza.
+
+Actions esegue il trasporto MCP in modalità stateful, necessaria per recapitare
+l'elicitation, che è una richiesta iniziata dal server. Le sessioni hanno un
+tetto massimo e vengono eliminate quando restano inattive. Il Reader resta
+stateless.
+
 ## Dati persistenti
 
 `outbox.json` contiene body dei messaggi, destinatari, note delle proposte e metadati
@@ -169,9 +216,10 @@ Valutare gli advisory nel contesto, evitando però modifiche alle dipendenze che
 forzate senza test. Fissare le immagini base dei container e aggiornarle in modo intenzionale.
 Eseguire uno scanner di segreti sull'intera cronologia Git, non solo sull'albero corrente.
 
-Alla versione 2.0.0, `npm audit` riporta
+Alla versione 2.1.0, `npm audit` riporta
 [`GHSA-frvp-7c67-39w9`](https://github.com/advisories/GHSA-frvp-7c67-39w9)
-attraverso la dipendenza di produzione dall'SDK MCP. L'advisory riguarda il middleware
+attraverso la dipendenza di produzione dall'SDK MCP, raggiunta ora sia
+direttamente sia tramite `@modelcontextprotocol/ext-apps`. L'advisory riguarda il middleware
 per file statici dell'adapter Node di Hono su Windows. Questo progetto gira in un container
 Linux e non importa né richiama quel middleware, quindi il percorso vulnerabile non è
 raggiungibile nel deployment documentato. L'attuale SDK MCP v1 continua a fissare la

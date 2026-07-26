@@ -5,7 +5,7 @@ import { actionsConfig } from './config.js';
 import { registerActionsTools } from './tools.js';
 
 function buildServer(): McpServer {
-  const server = new McpServer({ name: 'mail-actions', version: '2.0.0' });
+  const server = new McpServer({ name: 'mail-actions', version: '2.1.0' });
   registerActionsTools(server);
   return server;
 }
@@ -17,7 +17,10 @@ const httpServer = startMcpHttpServer({
   token: actionsConfig.MCP_TOKEN,
   allowedHosts: actionsConfig.MCP_ALLOWED_HOSTS,
   jsonLimit: '1mb',
-  buildServer
+  buildServer,
+  // Terminal clients approve through elicitation, which needs a session the
+  // server can send requests back on. The reader stays stateless.
+  stateful: true
 });
 
 function shutdown(signal: string): void {

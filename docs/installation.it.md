@@ -75,11 +75,27 @@ leggibili a tutti.
 
 ## 3. Validare e avviare
 
+Le release taggate pubblicano su GHCR un'immagine multi-architettura. Per usarla,
+puntare `MAIL_MCP_IMAGE` al tag desiderato e saltare la build:
+
+```dotenv
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:2.1.0
+```
+
+```sh
+docker compose config
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+Per compilare dai sorgenti, aggiungere invece l'override di build:
+
 ```sh
 npm ci --ignore-scripts
 npm run check
 docker compose config
-docker compose build
+docker compose -f compose.yaml -f compose.build.yaml build
 docker compose up -d
 docker compose ps
 ```

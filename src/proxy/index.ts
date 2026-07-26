@@ -108,6 +108,10 @@ const server = http.createServer(async (request, response) => {
       timeout: timeoutMs
     },
     (upstreamResponse) => {
+      // The timeout guards how long Actions may take to start responding. Once
+      // it has, the exchange can legitimately stay idle for a long time: an SSE
+      // stream carrying an elicitation waits on a human at the approval page.
+      upstream.setTimeout(0);
       response.writeHead(
         upstreamResponse.statusCode ?? 502,
         upstreamResponse.headers

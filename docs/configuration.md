@@ -95,7 +95,8 @@ File: `local-config/actions.env`.
 |---|---|---|
 | `WORKER_INTERNAL_URL` | `http://mail-worker:7337` in code; Compose uses `http://worker:7337` | Internal queue API |
 | `WORKER_REQUEST_TIMEOUT_MS` | `15000` | Worker API timeout |
-| `APPROVAL_BASE_URL` | `http://127.0.0.1:7337` | URL shown to the user; use public HTTPS behind Tunnel |
+| `APPROVAL_BASE_URL` | `http://127.0.0.1:7337` | URL shown to the user, and the only origin the in-chat approval app may reach; use public HTTPS behind Tunnel |
+| `APPROVAL_WAIT_MS` | `120000` | How long a call waits on a URL-mode elicitation for clients that cannot render the app; `0` disables the wait |
 | `MCP_HOST` | `0.0.0.0` | Container listen address |
 | `MCP_PORT` | `3334` | Internal Actions port |
 | `MCP_ALLOWED_HOSTS` | `localhost,127.0.0.1,actions` | Includes the Docker service name used by the proxy |

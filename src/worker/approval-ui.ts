@@ -41,53 +41,77 @@ function page(title: string, body: string): string {
 </html>`;
 }
 
-function metadata(proposal: Proposal): string {
+export type ApprovalRow = { label: string; value: string };
+
+export type ApprovalMoveRow = {
+  sender: string;
+  subject: string;
+  source: string;
+  destination: string;
+  outcome: string;
+};
+
+export function approvalRows(proposal: Proposal): ApprovalRow[] {
   if (proposal.kind === 'move') {
     const destinations = [
       ...new Set(proposal.moveItems.map((item) => item.destinationMailbox))
     ].join(', ');
-    const rows: Array<[string, string]> = [
-      [t.approval.label.messages, String(proposal.moveItems.length)],
-      [t.approval.label.destination, destinations],
-      [t.approval.label.approvalExpires, formatDate(proposal.approvalExpiresAt)],
+    return [
+      { label: t.approval.label.messages, value: String(proposal.moveItems.length) },
+      { label: t.approval.label.destination, value: destinations },
+      {
+        label: t.approval.label.approvalExpires,
+        value: formatDate(proposal.approvalExpiresAt)
+      },
       ...(proposal.note
-        ? ([[t.approval.label.note, proposal.note]] as Array<[string, string]>)
+        ? [{ label: t.approval.label.note, value: proposal.note }]
         : [])
     ];
-    return rows
-      .map(
-        ([label, value]) =>
-          `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`
-      )
-      .join('');
   }
 
   const message = proposal.message;
-  const rows: Array<[string, string]> = [
-    [t.approval.label.to, message.to.join(', ')],
+  return [
+    { label: t.approval.label.to, value: message.to.join(', ') },
     ...(message.cc?.length
-      ? ([[t.approval.label.cc, message.cc.join(', ')]] as Array<[string, string]>)
+      ? [{ label: t.approval.label.cc, value: message.cc.join(', ') }]
       : []),
     ...(message.bcc?.length
-      ? ([[t.approval.label.bcc, message.bcc.join(', ')]] as Array<[string, string]>)
+      ? [{ label: t.approval.label.bcc, value: message.bcc.join(', ') }]
       : []),
-    [t.approval.label.subject, message.subject],
-    [
-      proposal.scheduledFor
+    { label: t.approval.label.subject, value: message.subject },
+    {
+      label: proposal.scheduledFor
         ? t.approval.label.scheduledSend
         : t.approval.label.send,
-      proposal.scheduledFor
+      value: proposal.scheduledFor
         ? formatDate(proposal.scheduledFor)
         : t.approval.label.assoonAsApproved
-    ],
-    [t.approval.label.approvalExpires, formatDate(proposal.approvalExpiresAt)],
+    },
+    {
+      label: t.approval.label.approvalExpires,
+      value: formatDate(proposal.approvalExpiresAt)
+    },
     ...(proposal.note
-      ? ([[t.approval.label.note, proposal.note]] as Array<[string, string]>)
+      ? [{ label: t.approval.label.note, value: proposal.note }]
       : [])
   ];
-  return rows
+}
+
+export function approvalMoveRows(proposal: Proposal): ApprovalMoveRow[] {
+  if (proposal.kind !== 'move') return [];
+  return proposal.moveItems.map((item) => ({
+    sender: item.from,
+    subject: item.subject,
+    source: item.sourceMailbox,
+    destination: item.destinationMailbox,
+    outcome: item.result.status
+  }));
+}
+
+function metadata(proposal: Proposal): string {
+  return approvalRows(proposal)
     .map(
-      ([label, value]) =>
+      ({ label, value }) =>
         `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`
     )
     .join('');
@@ -95,15 +119,15 @@ function metadata(proposal: Proposal): string {
 
 function moveItemsTable(proposal: Proposal): string {
   if (proposal.kind !== 'move') return '';
-  const rows = proposal.moveItems
+  const rows = approvalMoveRows(proposal)
     .map(
-      (item) =>
+      (row) =>
         `<tr>
-          <td>${escapeHtml(item.from)}</td>
-          <td>${escapeHtml(item.subject)}</td>
-          <td>${escapeHtml(item.sourceMailbox)}</td>
-          <td>${escapeHtml(item.destinationMailbox)}</td>
-          <td>${escapeHtml(item.result.status)}</td>
+          <td>${escapeHtml(row.sender)}</td>
+          <td>${escapeHtml(row.subject)}</td>
+          <td>${escapeHtml(row.source)}</td>
+          <td>${escapeHtml(row.destination)}</td>
+          <td>${escapeHtml(row.outcome)}</td>
         </tr>`
     )
     .join('');
@@ -117,6 +141,41 @@ function moveItemsTable(proposal: Proposal): string {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function approvalCopy(proposal: Proposal): {
+  title: string;
+  heading: string;
+  warning: string;
+  approveLabel: string;
+} {
+  const isMove = proposal.kind === 'move';
+  return {
+    title: isMove
+      ? t.approval.moveTitle(proposal.moveItems.length)
+      : t.approval.sendTitle(proposal.message.subject),
+    heading: isMove
+      ? t.approval.moveHeading
+      : t.approval.sendHeading(Boolean(proposal.scheduledFor)),
+    warning: isMove ? t.approval.moveWarning : t.approval.sendWarning,
+    approveLabel: isMove
+      ? t.approval.approveMove
+      : proposal.scheduledFor
+        ? t.approval.approveSchedule
+        : t.approval.sendNow
+  };
+}
+
+function statusDescription(proposal: Proposal): string {
+  const scheduledDate = proposal.scheduledFor
+    ? formatDate(proposal.scheduledFor)
+    : null;
+  const sentDate = proposal.sentAt ? formatDate(proposal.sentAt) : null;
+  return proposal.kind === 'move'
+    ? t.approval.moveStatus[proposal.status](sentDate)
+    : t.approval.sendStatus[proposal.status](
+        proposal.status === 'scheduled' ? scheduledDate : sentDate
+      );
 }
 
 export function renderApproval(proposal: Proposal, error?: string): string {
@@ -137,21 +196,10 @@ export function renderApproval(proposal: Proposal, error?: string): string {
     'cancel'
   );
   const isMove = proposal.kind === 'move';
-  const title = isMove
-    ? t.approval.moveTitle(proposal.moveItems.length)
-    : t.approval.sendTitle(proposal.message.subject);
-  const heading = isMove
-    ? t.approval.moveHeading
-    : t.approval.sendHeading(Boolean(proposal.scheduledFor));
-  const warning = isMove ? t.approval.moveWarning : t.approval.sendWarning;
+  const { title, heading, warning, approveLabel } = approvalCopy(proposal);
   const preview = isMove
     ? moveItemsTable(proposal)
     : `<pre>${escapeHtml(proposal.message.text)}</pre>`;
-  const approveLabel = isMove
-    ? t.approval.approveMove
-    : proposal.scheduledFor
-      ? t.approval.approveSchedule
-      : t.approval.sendNow;
   return page(
     title,
     `<h1>${escapeHtml(heading)}</h1>
@@ -173,16 +221,7 @@ export function renderApproval(proposal: Proposal, error?: string): string {
 }
 
 export function renderStatus(proposal: Proposal): string {
-  const scheduledDate = proposal.scheduledFor
-    ? formatDate(proposal.scheduledFor)
-    : null;
-  const sentDate = proposal.sentAt ? formatDate(proposal.sentAt) : null;
-  const description =
-    proposal.kind === 'move'
-      ? t.approval.moveStatus[proposal.status](sentDate)
-      : t.approval.sendStatus[proposal.status](
-          proposal.status === 'scheduled' ? scheduledDate : sentDate
-        );
+  const description = statusDescription(proposal);
   return page(
     t.approval.statusTitle(proposal.status),
     `<h1>${escapeHtml(t.approval.statusHeading(proposal.status))}</h1>
@@ -195,4 +234,86 @@ export function renderStatus(proposal: Proposal): string {
 
 export function renderSimple(title: string, message: string): string {
   return page(title, `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p>`);
+}
+
+export type ApprovalView = {
+  id: string;
+  kind: Proposal['kind'];
+  status: Proposal['status'];
+  locale: string;
+  title: string;
+  heading: string;
+  warning: string;
+  rows: ApprovalRow[];
+  /** Full message text. Only ever leaves the worker towards the reviewing browser. */
+  body: string | null;
+  moveRows: ApprovalMoveRow[];
+  columns: {
+    sender: string;
+    subject: string;
+    from: string;
+    to: string;
+    outcome: string;
+  };
+  statusText: string;
+  statusHeading: string;
+  error: string | null;
+  /** Present only while the proposal can still be acted on. */
+  actions: {
+    approveLabel: string;
+    cancelLabel: string;
+    secretPlaceholder: string;
+    approveCsrf: string;
+    cancelCsrf: string;
+  } | null;
+};
+
+/**
+ * Same data the browser approval page renders, shaped for the in-chat app.
+ * Both views are built from the stored proposal so they cannot drift apart.
+ */
+export function approvalView(proposal: Proposal): ApprovalView {
+  const { title, heading, warning, approveLabel } = approvalCopy(proposal);
+  const actionable = proposal.status === 'pending_approval';
+  return {
+    id: proposal.id,
+    kind: proposal.kind,
+    status: proposal.status,
+    locale,
+    title,
+    heading,
+    warning,
+    rows: approvalRows(proposal),
+    body: proposal.kind === 'send' ? proposal.message.text : null,
+    moveRows: approvalMoveRows(proposal),
+    columns: {
+      sender: t.approval.column.sender,
+      subject: t.approval.column.subject,
+      from: t.approval.column.from,
+      to: t.approval.column.to,
+      outcome: t.approval.column.outcome
+    },
+    statusText: statusDescription(proposal),
+    statusHeading: t.approval.statusHeading(proposal.status),
+    error: proposal.error,
+    actions: actionable
+      ? {
+          approveLabel,
+          cancelLabel: t.approval.cancelProposal,
+          secretPlaceholder: t.approval.secretPlaceholder,
+          approveCsrf: signForm(
+            workerConfig.APPROVAL_CSRF_SECRET,
+            proposal.id,
+            proposal.createdAt,
+            'approve'
+          ),
+          cancelCsrf: signForm(
+            workerConfig.APPROVAL_CSRF_SECRET,
+            proposal.id,
+            proposal.createdAt,
+            'cancel'
+          )
+        }
+      : null
+  };
 }

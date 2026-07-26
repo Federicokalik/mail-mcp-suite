@@ -84,7 +84,10 @@ try {
     APPROVAL_CSRF_SECRET: csrfSecret,
     OUTBOX_PATH: join(directory, 'outbox.json'),
     WORKER_HOST: '127.0.0.1',
-    WORKER_PORT: String(workerPort)
+    WORKER_PORT: String(workerPort),
+    // Keeps the scheduler from claiming the proposal we approve below, so the
+    // assertion sees "approved" rather than a transient "sending".
+    SCHEDULER_INTERVAL_MS: '60000'
   });
   await waitForHealth(`http://127.0.0.1:${workerPort}/healthz`);
 
@@ -185,9 +188,91 @@ try {
     (JSON.parse(toolText(cancelled)) as { status: string }).status,
     'cancelled'
   );
+
+  // In-chat approval: the tool result hands the app a capability token, and the
+  // app then talks to the worker directly. The body and the approval secret
+  // never travel through the MCP channel.
+  const body = 'Body reviewed only inside the approval app';
+  const forApp = await actions.callTool({
+    name: 'mail_send',
+    arguments: {
+      to: ['recipient@example.com'],
+      subject: 'App approval',
+      text: body
+    }
+  });
+  assert.doesNotMatch(toolText(forApp), new RegExp(body));
+
+  const appPayload = JSON.parse(toolText(forApp)) as { id: string };
+  const appContext = (
+    forApp._meta as
+      | Record<
+          string,
+          { proposalId: string; appToken: string; approvalOrigin: string }
+        >
+      | undefined
+  )?.['mail/approval'];
+  assert.ok(appContext, 'the tool result carries the approval app context');
+  assert.equal(appContext.proposalId, appPayload.id);
+
+  const appBase = `${appContext.approvalOrigin}/approval/${appPayload.id}`;
+  const authorized = { Authorization: `Bearer ${appContext.appToken}` };
+
+  const preflight = await fetch(`${appBase}/app`, { method: 'OPTIONS' });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), '*');
+
+  const forged = await fetch(`${appBase}/app`, {
+    headers: { Authorization: 'Bearer not-the-right-token' }
+  });
+  assert.equal(forged.status, 401);
+
+  const view = await fetch(`${appBase}/app`, { headers: authorized });
+  assert.equal(view.status, 200);
+  const { view: proposalView } = (await view.json()) as {
+    view: {
+      status: string;
+      body: string;
+      actions: { approveCsrf: string; cancelCsrf: string };
+    };
+  };
+  assert.equal(proposalView.body, body);
+  assert.ok(proposalView.actions);
+
+  const post = async (action: string, payload: unknown): Promise<Response> =>
+    fetch(`${appBase}/app-${action}`, {
+      method: 'POST',
+      headers: { ...authorized, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+  const wrongSecret = await post('approve', {
+    csrf: proposalView.actions.approveCsrf,
+    secret: 'deliberately-wrong-secret'
+  });
+  assert.equal(wrongSecret.status, 401);
+
+  const wrongCsrf = await post('approve', {
+    csrf: proposalView.actions.cancelCsrf,
+    secret: 'approval-dummy'
+  });
+  assert.equal(wrongCsrf.status, 403);
+
+  const approved = await post('approve', {
+    csrf: proposalView.actions.approveCsrf,
+    secret: 'approval-dummy'
+  });
+  assert.equal(approved.status, 200);
+  assert.equal(
+    ((await approved.json()) as { view: { status: string } }).view.status,
+    'approved'
+  );
+
   await actions.close();
 
-  console.log('Smoke test passed: MCP auth, tool discovery, queue and cancellation OK.');
+  console.log(
+    'Smoke test passed: MCP auth, tool discovery, queue, cancellation and in-chat approval OK.'
+  );
 } catch (error) {
   console.error(logs.join(''));
   throw error;

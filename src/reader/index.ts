@@ -5,7 +5,7 @@ import { readerConfig } from './config.js';
 import { registerReaderTools } from './tools.js';
 
 function buildServer(): McpServer {
-  const server = new McpServer({ name: 'mail-reader', version: '2.0.0' });
+  const server = new McpServer({ name: 'mail-reader', version: '2.1.0' });
   registerReaderTools(server);
   return server;
 }

@@ -109,6 +109,29 @@ browser Access cookie. Edit the Reader and Actions Access applications, open
 Managed OAuth is not required for the approval hostname, which is opened in a
 normal browser.
 
+### Allow the in-chat approval app
+
+The approval app runs inside the host's sandboxed iframe. Its requests carry
+`Origin: null` and no `CF_Authorization` cookie, so Access would answer them
+with a login redirect and the app could never load the proposal.
+
+Add a policy on the approval application, scoped to the app routes only:
+
+- **Path**: `/approval/*/app`, `/approval/*/app-approve`, `/approval/*/app-cancel`
+- **Action**: Bypass (or Service Auth with a service token)
+
+Leave the browser page `/approval/:id` protected by the normal policy.
+
+This trades the browser login for the capability token on those three routes.
+The token is an HMAC bound to a single proposal, it is delivered to the app and
+never to the model in a usable form, and it does not authorize anything on its
+own: approving still requires the CSRF signature and the human approval secret.
+Rate limiting applies to the app routes exactly as it does to the form.
+
+If you would rather not add the exception, skip it. Clients then fall back to
+the elicitation prompt or the plain approval URL, both of which open the
+Access-protected page in a normal browser.
+
 Keep Reader and Actions as separate applications. Their Access application
 audiences are different and must be configured at the origin.
 

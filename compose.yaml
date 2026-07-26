@@ -19,8 +19,6 @@ x-security: &security
 services:
   reader:
     <<: *security
-    build:
-      context: .
     image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
     command: ["node", "dist/reader/index.js"]
     env_file:

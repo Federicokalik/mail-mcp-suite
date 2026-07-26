@@ -112,6 +112,31 @@ e Actions, aprire **Advanced settings** e abilitare **Managed OAuth**.
 Managed OAuth non è necessario per l'hostname di approvazione, che viene aperto
 in un normale browser.
 
+### Consentire l'app di approvazione in chat
+
+L'app di approvazione gira dentro l'iframe sandboxed del client. Le sue
+richieste hanno `Origin: null` e nessun cookie `CF_Authorization`, quindi Access
+risponderebbe con un redirect di login e l'app non riuscirebbe mai a caricare la
+proposta.
+
+Aggiungere una policy sull'applicazione di approvazione, limitata alle sole
+rotte dell'app:
+
+- **Path**: `/approval/*/app`, `/approval/*/app-approve`, `/approval/*/app-cancel`
+- **Azione**: Bypass (oppure Service Auth con un service token)
+
+Lasciare la pagina browser `/approval/:id` protetta dalla policy normale.
+
+Su quelle tre rotte si scambia il login del browser con il token di capacità. Il
+token è un HMAC vincolato a una singola proposta, viene consegnato all'app e mai
+al modello in forma utilizzabile, e da solo non autorizza nulla: per approvare
+servono comunque la firma CSRF e il segreto umano di approvazione. Il rate
+limiting si applica alle rotte dell'app esattamente come al form.
+
+Se si preferisce non aggiungere l'eccezione, la si può omettere. I client
+ricadono allora sul prompt di elicitation o sull'URL di approvazione testuale,
+che aprono entrambi la pagina protetta da Access in un browser normale.
+
 Mantenere Reader e Actions come applicazioni separate. Le rispettive
 Application Audience (AUD) sono diverse e devono essere configurate lato origin.
 

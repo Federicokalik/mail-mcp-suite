@@ -107,6 +107,12 @@ const en = {
         'Show the URL to the user. The schedule becomes active only after confirmation.',
       move: 'Show the URL to the user. No message will be moved before confirmation.',
       restore: 'Show the URL to the user. The rollback will happen only after confirmation.'
+    },
+    elicitation: {
+      message:
+        'Open the approval page to review the full proposal and confirm it with your approval secret.',
+      stillPending:
+        'Still awaiting confirmation. The proposal stays valid until it expires; approve it on the page whenever you are ready.'
     }
   },
 
@@ -380,6 +386,12 @@ const it: typeof en = {
         'Mostra l’URL all’utente. La programmazione diventa attiva solo dopo la conferma.',
       move: 'Mostra l’URL all’utente. Nessun messaggio verrà spostato prima della conferma.',
       restore: 'Mostra l’URL all’utente. Il ripristino avverrà solo dopo la conferma.'
+    },
+    elicitation: {
+      message:
+        'Apri la pagina di approvazione per rivedere la proposta completa e confermarla con il tuo segreto di approvazione.',
+      stillPending:
+        'Ancora in attesa di conferma. La proposta resta valida fino alla scadenza: puoi approvarla nella pagina quando vuoi.'
     }
   },
 
