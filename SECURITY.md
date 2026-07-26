@@ -213,7 +213,7 @@ Review advisories in context, but do not apply breaking or forced dependency
 changes without tests. Pin container base images and update them intentionally.
 Run a secret scanner against the complete Git history, not only the current tree.
 
-At version 2.1.0, `npm audit` reports
+At version 3.0.0, `npm audit` reports
 [`GHSA-frvp-7c67-39w9`](https://github.com/advisories/GHSA-frvp-7c67-39w9)
 through the production MCP SDK dependency, now reached both directly and through
 `@modelcontextprotocol/ext-apps`. The advisory concerns the Hono Node

@@ -15,35 +15,30 @@ loopback binding unless you explicitly need LAN access.
 
 ## 1. Prepare configuration
 
-Configuration sits at two levels, and they are deliberately not merged:
+The whole stack reads one file, `.env` in the repository root. Passwords are not
+in it: they live in `local-config/secrets/` and are mounted per service as
+Docker secrets, which is what actually keeps SMTP credentials out of the Reader.
+Ports and bearer token paths are pinned in `compose.yaml` so they cannot drift.
 
-- `.env` in the repository root holds the three variables Compose itself needs
-  to interpolate `compose.yaml` — which image to run, where the configuration
-  tree lives, and which address to bind. It is never injected into a container.
-- `local-config/<service>.env` holds the settings of one service and is mounted
-  into that container only. Keeping them apart is what stops the Reader from
-  seeing SMTP settings and Actions from seeing approval settings.
-
-Create both. Everything below is ignored by Git.
+Both paths below are ignored by Git.
 
 ```sh
-cp config/compose.env.example .env
+cp config/mail-mcp.env.example .env
 mkdir -p local-config/secrets
-cp config/reader.env.example local-config/reader.env
-cp config/actions.env.example local-config/actions.env
-cp config/actions-proxy.env.example local-config/actions-proxy.env
-cp config/worker.env.example local-config/worker.env
+chmod 600 .env
 chmod 700 local-config local-config/secrets
-chmod 600 .env local-config/*.env
 ```
 
-Edit the four `.env` files:
+Edit `.env`:
 
 - set the IMAP and SMTP hostname, port, user, and sender;
 - set the exact mailbox names used by your server;
 - set `APPROVAL_TIMEZONE` to an IANA name such as `Europe/Rome`;
-- leave the Cloudflare variables empty for a local-only deployment;
+- leave the Cloudflare variables commented out for a local-only deployment;
 - keep `ALLOW_INSECURE_MAIL_TRANSPORT=false` in production.
+
+Never put a password in `.env`. It is injected into all four containers, so an
+inline credential would be readable by services that have no business with it.
 
 Mailbox names are provider-specific. Use `INBOX`, `INBOX.Social`, and similar
 values only if those exact names exist on your server.
@@ -88,7 +83,7 @@ Tagged releases publish a multi-architecture image to GHCR. To use it, point
 
 ```dotenv
 # .env
-MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:2.1.0
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.0.0
 ```
 
 ```sh
@@ -141,9 +136,9 @@ Replace `192.0.2.10` with an address actually assigned to the host. Do not use
 `0.0.0.0` unless the host firewall and network are intentionally configured for
 that exposure. Also add that exact address to:
 
-- `MCP_ALLOWED_HOSTS` in `local-config/reader.env`;
-- `PROXY_ALLOWED_HOSTS` in `local-config/actions-proxy.env`;
-- `WORKER_ALLOWED_HOSTS` in `local-config/worker.env`.
+- `READER_ALLOWED_HOSTS`;
+- `PROXY_ALLOWED_HOSTS`;
+- `WORKER_ALLOWED_HOSTS`.
 
 Keep `TRUST_PROXY_HOPS=0` for direct LAN access. Do not port-forward these
 services from a router.

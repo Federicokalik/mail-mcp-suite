@@ -1,5 +1,11 @@
 name: mail-mcp
 
+# Every service reads the same .env. What distinguishes one service from another
+# — its port, its bearer token, the secret paths it may resolve — is pinned in
+# each `environment:` block instead, which takes precedence over `env_file`.
+# That keeps the operator's file free of identity settings that must not drift,
+# and free of any credential path that could be turned into an inline password.
+
 x-security: &security
   read_only: true
   cap_drop:
@@ -16,16 +22,25 @@ x-security: &security
       max-size: 10m
       max-file: "3"
 
+x-config: &config
+  env_file:
+    - path: .env
+      required: true
+
 services:
   reader:
-    <<: *security
+    <<: [*security, *config]
     image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
     command: ["node", "dist/reader/index.js"]
-    env_file:
-      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/reader.env
-        required: true
     environment:
       NODE_OPTIONS: --max-old-space-size=256
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "3333"
+      MCP_TOKEN_FILE: /run/secrets/reader_mcp_token
+      IMAP_PASSWORD_FILE: /run/secrets/imap_password
+      MCP_ALLOWED_HOSTS: ${READER_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CHARACTER_LIMIT: ${READER_CHARACTER_LIMIT:-30000}
+      CLOUDFLARE_ACCESS_AUD: ${READER_ACCESS_AUD:-}
     secrets:
       - reader_mcp_token
       - imap_password
@@ -51,14 +66,19 @@ services:
       start_period: 10s
 
   actions:
-    <<: *security
+    <<: [*security, *config]
     image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
     command: ["node", "dist/actions/index.js"]
-    env_file:
-      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/actions.env
-        required: true
     environment:
       NODE_OPTIONS: --max-old-space-size=128
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "3334"
+      MCP_TOKEN_FILE: /run/secrets/actions_mcp_token
+      QUEUE_API_TOKEN_FILE: /run/secrets/queue_api_token
+      # Actions is never addressed from outside; the proxy in front of it is.
+      MCP_ALLOWED_HOSTS: localhost,127.0.0.1,actions
+      WORKER_INTERNAL_URL: http://worker:7337
+      CHARACTER_LIMIT: ${ACTIONS_CHARACTER_LIMIT:-20000}
     secrets:
       - actions_mcp_token
       - queue_api_token
@@ -85,12 +105,9 @@ services:
       start_period: 10s
 
   actions-proxy:
-    <<: *security
+    <<: [*security, *config]
     image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
     command: ["node", "dist/proxy/index.js"]
-    env_file:
-      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/actions-proxy.env
-        required: true
     environment:
       NODE_OPTIONS: --max-old-space-size=64
       PROXY_HOST: 0.0.0.0
@@ -98,6 +115,7 @@ services:
       PROXY_TARGET: http://actions:3334
       PROXY_TIMEOUT_MS: "30000"
       MCP_TOKEN_FILE: /run/secrets/actions_mcp_token
+      CLOUDFLARE_ACCESS_AUD: ${ACTIONS_ACCESS_AUD:-}
     secrets:
       - actions_mcp_token
     ports:
@@ -126,14 +144,19 @@ services:
       start_period: 10s
 
   worker:
-    <<: *security
+    <<: [*security, *config]
     image: ${MAIL_MCP_IMAGE:-mail-mcp-suite:local}
     command: ["node", "dist/worker/index.js"]
-    env_file:
-      - path: ${MAIL_MCP_CONFIG_DIR:-./local-config}/worker.env
-        required: true
     environment:
       NODE_OPTIONS: --max-old-space-size=192
+      WORKER_HOST: 0.0.0.0
+      WORKER_PORT: "7337"
+      QUEUE_API_TOKEN_FILE: /run/secrets/queue_api_token
+      APPROVAL_SECRET_FILE: /run/secrets/approval_secret
+      APPROVAL_CSRF_SECRET_FILE: /run/secrets/approval_csrf_secret
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      MOVE_IMAP_PASSWORD_FILE: /run/secrets/imap_password
+      SENT_IMAP_PASSWORD_FILE: /run/secrets/imap_password
     secrets:
       - queue_api_token
       - approval_secret

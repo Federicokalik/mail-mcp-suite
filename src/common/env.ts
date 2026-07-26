@@ -16,6 +16,22 @@ export const csv = z
   )
   .pipe(z.array(z.string()));
 
+/**
+ * Treats a blank value as absent. With one env file shared by every service,
+ * leaving a setting empty is the natural way to disable it; without this a
+ * blank line would reach the schema as "" and fail a `min(1)` or silently
+ * defeat a `??` fallback.
+ */
+export function optional<Schema extends z.ZodTypeAny>(
+  schema: Schema
+): z.ZodType<z.infer<Schema> | undefined> {
+  return z.preprocess(
+    (value) =>
+      typeof value === 'string' && value.trim() === '' ? undefined : value,
+    schema.optional()
+  ) as z.ZodType<z.infer<Schema> | undefined>;
+}
+
 export function parseEnvironment<Schema extends z.ZodTypeAny>(
   schema: Schema,
   source: NodeJS.ProcessEnv = process.env

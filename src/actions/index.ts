@@ -5,7 +5,7 @@ import { actionsConfig } from './config.js';
 import { registerActionsTools } from './tools.js';
 
 function buildServer(): McpServer {
-  const server = new McpServer({ name: 'mail-actions', version: '2.1.0' });
+  const server = new McpServer({ name: 'mail-actions', version: '3.0.0' });
   registerActionsTools(server);
   return server;
 }

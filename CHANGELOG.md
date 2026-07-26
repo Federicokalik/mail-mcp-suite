@@ -4,6 +4,43 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.0.0] - 2026-07-26
+
+### Changed
+
+- **Breaking.** The five configuration files collapse into one: `.env` in the
+  repository root, copied from `config/mail-mcp.env.example`. The per-service
+  `config/*.env.example` files are gone.
+- Settings that identify a service — listen ports, bearer token paths, secret
+  paths, the internal Worker URL and the Actions Host allowlist — moved into the
+  `environment:` blocks of `compose.yaml`, which take precedence over
+  `env_file`. They can no longer drift or be edited by accident.
+- Variables that previously collided between services are now named apart:
+  `MCP_ALLOWED_HOSTS` becomes `READER_ALLOWED_HOSTS`, `CHARACTER_LIMIT` becomes
+  `READER_CHARACTER_LIMIT` and `ACTIONS_CHARACTER_LIMIT`, and
+  `CLOUDFLARE_ACCESS_AUD` becomes `READER_ACCESS_AUD` and `ACTIONS_ACCESS_AUD`.
+- Optional settings now treat a blank value as unset, so a line can be emptied
+  instead of deleted.
+
+### Security
+
+- No change to service isolation. Credentials were never in the env files: they
+  are Docker secrets, and the per-service `secrets:` list in `compose.yaml` is
+  what keeps the SMTP password out of the Reader. Verified by inspection of a
+  running stack.
+- No secret path appears in `.env` any more, so there is no line an operator can
+  turn into an inline credential by mistake.
+- What the shared file does expose to every container is non-secret
+  configuration: hostnames, usernames, allowlists and policies.
+
+### Migration from 2.x
+
+1. `cp config/mail-mcp.env.example .env`
+2. Copy your values across from `local-config/*.env`, renaming the four
+   variables listed above.
+3. Delete `local-config/*.env`. Keep `local-config/secrets/` untouched.
+4. `docker compose up -d`
+
 ## [2.1.0] - 2026-07-26
 
 ### Added

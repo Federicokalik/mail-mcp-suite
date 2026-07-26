@@ -216,7 +216,7 @@ Valutare gli advisory nel contesto, evitando però modifiche alle dipendenze che
 forzate senza test. Fissare le immagini base dei container e aggiornarle in modo intenzionale.
 Eseguire uno scanner di segreti sull'intera cronologia Git, non solo sull'albero corrente.
 
-Alla versione 2.1.0, `npm audit` riporta
+Alla versione 3.0.0, `npm audit` riporta
 [`GHSA-frvp-7c67-39w9`](https://github.com/advisories/GHSA-frvp-7c67-39w9)
 attraverso la dipendenza di produzione dall'SDK MCP, raggiunta ora sia
 direttamente sia tramite `@modelcontextprotocol/ext-apps`. L'advisory riguarda il middleware

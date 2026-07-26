@@ -78,17 +78,13 @@ Requirements: Docker Compose v2 and a mail account offering IMAP and SMTP over
 TLS. Node.js 20.11 or newer is needed only for local checks.
 
 ```sh
+cp config/mail-mcp.env.example .env
 mkdir -p local-config/secrets
-cp config/reader.env.example local-config/reader.env
-cp config/actions.env.example local-config/actions.env
-cp config/actions-proxy.env.example local-config/actions-proxy.env
-cp config/worker.env.example local-config/worker.env
-cp config/compose.env.example .env
+chmod 600 .env
 chmod 700 local-config local-config/secrets
-chmod 600 local-config/*.env
 ```
 
-Edit the `.env` files, then create the seven secret files listed in
+Edit `.env`, then create the seven secret files listed in
 [secrets/README.md](secrets/README.md). Generate each machine token independently:
 
 ```sh

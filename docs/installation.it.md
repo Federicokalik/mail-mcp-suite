@@ -16,36 +16,32 @@ necessario.
 
 ## 1. Preparare la configurazione
 
-La configurazione sta su due livelli, tenuti separati di proposito:
+L'intero stack legge un solo file, `.env` nella radice del repository. Le
+password non stanno lì: vivono in `local-config/secrets/` e sono montate per
+servizio come Docker secret, ed è questo a tenere davvero le credenziali SMTP
+fuori dal Reader. Porte e percorsi dei token bearer sono fissati in
+`compose.yaml`, così non possono divergere.
 
-- `.env` nella root del repository contiene le tre variabili che servono a
-  Compose stesso per interpolare `compose.yaml`: quale immagine eseguire, dove
-  si trova l'albero di configurazione e su quale indirizzo fare il bind. Non
-  viene mai iniettato in un container.
-- `local-config/<servizio>.env` contiene le impostazioni di un solo servizio ed
-  è montato soltanto in quel container. È questa separazione a impedire che il
-  Reader veda le impostazioni SMTP e che Actions veda quelle di approvazione.
-
-Crearli entrambi. Tutto ciò che segue è ignorato da Git.
+Entrambi i percorsi qui sotto sono ignorati da Git.
 
 ```sh
-cp config/compose.env.example .env
+cp config/mail-mcp.env.example .env
 mkdir -p local-config/secrets
-cp config/reader.env.example local-config/reader.env
-cp config/actions.env.example local-config/actions.env
-cp config/actions-proxy.env.example local-config/actions-proxy.env
-cp config/worker.env.example local-config/worker.env
+chmod 600 .env
 chmod 700 local-config local-config/secrets
-chmod 600 .env local-config/*.env
 ```
 
-Modificare i quattro file `.env`:
+Modificare `.env`:
 
 - impostare hostname, porta, utente e mittente per IMAP e SMTP;
 - impostare i nomi esatti delle mailbox usati dal proprio server;
 - impostare `APPROVAL_TIMEZONE` con un nome IANA come `Europe/Rome`;
-- lasciare vuote le variabili Cloudflare per un deployment solo locale;
+- lasciare commentate le variabili Cloudflare per un deployment solo locale;
 - mantenere `ALLOW_INSECURE_MAIL_TRANSPORT=false` in produzione.
+
+Non mettere mai una password nel `.env`. Viene iniettato in tutti e quattro i
+container, quindi una credenziale in chiaro sarebbe leggibile da servizi che non
+hanno alcun motivo di conoscerla.
 
 I nomi delle mailbox dipendono dal provider. Usare `INBOX`, `INBOX.Social` e
 valori simili solo se quei nomi esistono esattamente sul proprio server.
@@ -91,7 +87,7 @@ puntare `MAIL_MCP_IMAGE` al tag desiderato nel `.env` di root e saltare la build
 
 ```dotenv
 # .env
-MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:2.1.0
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.0.0
 ```
 
 ```sh
@@ -146,9 +142,9 @@ usare `0.0.0.0` a meno che il firewall dell'host e la rete non siano configurati
 intenzionalmente per tale esposizione. Aggiungere inoltre quello stesso indirizzo
 esatto a:
 
-- `MCP_ALLOWED_HOSTS` in `local-config/reader.env`;
-- `PROXY_ALLOWED_HOSTS` in `local-config/actions-proxy.env`;
-- `WORKER_ALLOWED_HOSTS` in `local-config/worker.env`.
+- `READER_ALLOWED_HOSTS`;
+- `PROXY_ALLOWED_HOSTS`;
+- `WORKER_ALLOWED_HOSTS`.
 
 Mantenere `TRUST_PROXY_HOPS=0` per l'accesso diretto dalla LAN. Non inoltrare le
 porte di questi servizi da un router.

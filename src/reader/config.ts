@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { assertEncryptedTransport, boolish, csv, parseEnvironment, readSecret } from '../common/env.js';
+import {
+  assertEncryptedTransport,
+  boolish,
+  csv,
+  optional,
+  parseEnvironment,
+  readSecret
+} from '../common/env.js';
 
 const ReaderEnvironmentSchema = z.object({
   IMAP_HOST: z.string().min(1),
@@ -16,8 +23,8 @@ const ReaderEnvironmentSchema = z.object({
   MCP_HOST: z.string().default('0.0.0.0'),
   MCP_PORT: z.coerce.number().int().positive().default(3333),
   MCP_ALLOWED_HOSTS: csv.default('localhost,127.0.0.1'),
-  CLOUDFLARE_ACCESS_TEAM_DOMAIN: z.string().url().optional(),
-  CLOUDFLARE_ACCESS_AUD: z.string().min(1).optional(),
+  CLOUDFLARE_ACCESS_TEAM_DOMAIN: optional(z.string().url()),
+  CLOUDFLARE_ACCESS_AUD: optional(z.string().min(1)),
   CLOUDFLARE_ACCESS_EMAILS: csv.default('')
 }).refine(
   (value) => {

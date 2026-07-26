@@ -143,28 +143,22 @@ Application Audience (AUD) sono diverse e devono essere configurate lato origin.
 ## 6. Configurare la validazione Access lato origin
 
 Leggere l'Application Audience (`AUD`) di ciascuna applicazione MCP e il proprio
-team domain, quindi impostare:
-
-`local-config/reader.env`:
-
-```dotenv
-MCP_ALLOWED_HOSTS=localhost,127.0.0.1,mail-reader.example.com
-CLOUDFLARE_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-CLOUDFLARE_ACCESS_AUD=READER_APPLICATION_AUD
-CLOUDFLARE_ACCESS_EMAILS=user@example.com
-```
-
-`local-config/actions-proxy.env`:
+team domain. Reader e Actions sono applicazioni distinte, quindi ognuna ha la
+propria audience: è per questo che nel `.env` hanno nomi separati.
 
 ```dotenv
+# .env
+READER_ALLOWED_HOSTS=localhost,127.0.0.1,mail-reader.example.com
 PROXY_ALLOWED_HOSTS=localhost,127.0.0.1,mail-actions.example.com
+
 CLOUDFLARE_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-CLOUDFLARE_ACCESS_AUD=ACTIONS_APPLICATION_AUD
 CLOUDFLARE_ACCESS_EMAILS=user@example.com
+READER_ACCESS_AUD=READER_APPLICATION_AUD
+ACTIONS_ACCESS_AUD=ACTIONS_APPLICATION_AUD
 ```
 
-Per più utenti usare indirizzi separati da virgola. Riavviare i servizi
-interessati:
+Compose consegna ciascuna audience al servizio giusto. Per più utenti usare
+indirizzi separati da virgola. Riavviare i servizi interessati:
 
 ```sh
 docker compose up -d reader actions-proxy
@@ -176,16 +170,12 @@ come difesa in profondità. Un bearer token MCP statico continua a funzionare
 quando le richieste raggiungono direttamente l'origin: per questo l'origin deve
 restare in ascolto solo su loopback.
 
-Impostare l'URL pubblico di approvazione in `local-config/actions.env`:
+Impostare nello stesso `.env` l'URL pubblico di approvazione, l'hostname del
+Worker e la profondità dei proxy fidati:
 
 ```dotenv
+# .env
 APPROVAL_BASE_URL=https://mail-approve.example.com
-```
-
-Impostare l'hostname del Worker e la profondità dei proxy fidati in
-`local-config/worker.env`:
-
-```dotenv
 WORKER_ALLOWED_HOSTS=localhost,127.0.0.1,worker,mail-approve.example.com
 TRUST_PROXY_HOPS=1
 ```
