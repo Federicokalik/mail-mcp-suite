@@ -75,7 +75,13 @@ Every environment variable is documented in
 ## Quick start
 
 Requirements: Docker Compose v2 and a mail account offering IMAP and SMTP over
-TLS. Node.js 20.11 or newer is needed only for local checks.
+TLS. Node.js is needed only to build from source or run the checks locally.
+
+The whole stack is configured by one file. Passwords are not in it: they are
+Docker secrets, mounted only into the services that need them.
+
+**1. Configuration.** Copy the example and edit it — mail hostnames, user,
+sender, mailbox names, and `APPROVAL_TIMEZONE`:
 
 ```sh
 cp config/mail-mcp.env.example .env
@@ -84,24 +90,35 @@ chmod 600 .env
 chmod 700 local-config local-config/secrets
 ```
 
-Edit `.env`, then create the seven secret files listed in
-[secrets/README.md](secrets/README.md). Generate each machine token independently:
+**2. Secrets.** Create the seven files listed in
+[secrets/README.md](secrets/README.md), one value per file. Generate each machine
+token independently, and use a separate human passphrase for `approval_secret`:
 
 ```sh
 openssl rand -hex 32
 ```
 
-Validate and start:
+**3. Start.** Point `MAIL_MCP_IMAGE` in `.env` at a published image:
+
+```dotenv
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.0.0
+```
 
 ```sh
-npm ci --ignore-scripts
-npm run check
 docker compose config
-docker compose build
+docker compose pull
 docker compose up -d
 ```
 
-Health checks:
+To build from source instead, add the build override:
+
+```sh
+npm ci --ignore-scripts && npm run check
+docker compose -f compose.yaml -f compose.build.yaml build
+docker compose up -d
+```
+
+**4. Check.**
 
 ```sh
 curl --fail http://127.0.0.1:3333/healthz
