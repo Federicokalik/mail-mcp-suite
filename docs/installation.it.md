@@ -16,16 +16,27 @@ necessario.
 
 ## 1. Preparare la configurazione
 
-Creare un albero di configurazione privato. `local-config/` è ignorato da Git.
+La configurazione sta su due livelli, tenuti separati di proposito:
+
+- `.env` nella root del repository contiene le tre variabili che servono a
+  Compose stesso per interpolare `compose.yaml`: quale immagine eseguire, dove
+  si trova l'albero di configurazione e su quale indirizzo fare il bind. Non
+  viene mai iniettato in un container.
+- `local-config/<servizio>.env` contiene le impostazioni di un solo servizio ed
+  è montato soltanto in quel container. È questa separazione a impedire che il
+  Reader veda le impostazioni SMTP e che Actions veda quelle di approvazione.
+
+Crearli entrambi. Tutto ciò che segue è ignorato da Git.
 
 ```sh
+cp config/compose.env.example .env
 mkdir -p local-config/secrets
 cp config/reader.env.example local-config/reader.env
 cp config/actions.env.example local-config/actions.env
 cp config/actions-proxy.env.example local-config/actions-proxy.env
 cp config/worker.env.example local-config/worker.env
 chmod 700 local-config local-config/secrets
-chmod 600 local-config/*.env
+chmod 600 .env local-config/*.env
 ```
 
 Modificare i quattro file `.env`:
@@ -76,9 +87,10 @@ leggibili a tutti.
 ## 3. Validare e avviare
 
 Le release taggate pubblicano su GHCR un'immagine multi-architettura. Per usarla,
-puntare `MAIL_MCP_IMAGE` al tag desiderato e saltare la build:
+puntare `MAIL_MCP_IMAGE` al tag desiderato nel `.env` di root e saltare la build:
 
 ```dotenv
+# .env
 MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:2.1.0
 ```
 
@@ -121,13 +133,12 @@ alcun messaggio.
 ## 4. Associare a un indirizzo LAN
 
 La configurazione predefinita associa tutte le porte pubblicate a `127.0.0.1`.
-Per esporle su una specifica interfaccia LAN, creare un file `.env` locale al
-repository:
+Per esporle su una specifica interfaccia LAN, modificare il `.env` di root
+creato al passo 1:
 
 ```dotenv
+# .env
 MAIL_MCP_BIND_ADDRESS=192.0.2.10
-MAIL_MCP_CONFIG_DIR=./local-config
-MAIL_MCP_IMAGE=mail-mcp-suite:local
 ```
 
 Sostituire `192.0.2.10` con un indirizzo effettivamente assegnato all'host. Non
