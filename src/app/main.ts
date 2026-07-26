@@ -235,7 +235,7 @@ function render(view: ApprovalView, failure?: string): void {
   root.replaceChildren(...parts);
 }
 
-const app = new App({ name: 'mail-approval', version: '2.1.0' });
+const app = new App({ name: 'mail-approval', version: '3.0.0' });
 
 app.ontoolresult = (result) => {
   const next = readContext(result._meta);

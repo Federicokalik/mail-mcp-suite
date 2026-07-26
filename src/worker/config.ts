@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { assertEncryptedTransport, boolish, csv, parseEnvironment, readSecret } from '../common/env.js';
+import {
+  assertEncryptedTransport,
+  boolish,
+  csv,
+  optional,
+  parseEnvironment,
+  readSecret
+} from '../common/env.js';
 import { dateLocale, t } from '../common/i18n.js';
 
 const safeText = z
@@ -18,16 +25,16 @@ const WorkerEnvironmentSchema = z.object({
   SMTP_SOCKET_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(600_000).default(60_000),
 
   SAVE_SENT_COPY: boolish.default('false'),
-  SENT_IMAP_HOST: z.string().optional(),
+  SENT_IMAP_HOST: optional(z.string().min(1)),
   SENT_IMAP_PORT: z.coerce.number().int().positive().default(993),
   SENT_IMAP_SECURE: boolish.default('true'),
-  SENT_IMAP_USER: z.string().optional(),
+  SENT_IMAP_USER: optional(z.string().min(1)),
   SENT_MAILBOX: z.string().default('Sent'),
 
-  MOVE_IMAP_HOST: z.string().optional(),
+  MOVE_IMAP_HOST: optional(z.string().min(1)),
   MOVE_IMAP_PORT: z.coerce.number().int().positive().default(993),
   MOVE_IMAP_SECURE: boolish.default('true'),
-  MOVE_IMAP_USER: z.string().optional(),
+  MOVE_IMAP_USER: optional(z.string().min(1)),
   MOVE_SOURCE_ALLOWLIST: csv.default(
     'INBOX,INBOX.Social,INBOX.Newsletters,INBOX.Updates'
   ),

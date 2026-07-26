@@ -1,6 +1,6 @@
 {
   "name": "mail-mcp-suite",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "description": "Security-focused IMAP reader and approval-gated mail actions for MCP clients",

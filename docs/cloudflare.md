@@ -138,28 +138,22 @@ audiences are different and must be configured at the origin.
 ## 6. Configure origin-side Access validation
 
 Read the Access application audience (`AUD`) for each MCP application and your
-team domain, then set:
-
-`local-config/reader.env`:
-
-```dotenv
-MCP_ALLOWED_HOSTS=localhost,127.0.0.1,mail-reader.example.com
-CLOUDFLARE_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-CLOUDFLARE_ACCESS_AUD=READER_APPLICATION_AUD
-CLOUDFLARE_ACCESS_EMAILS=user@example.com
-```
-
-`local-config/actions-proxy.env`:
+team domain. Reader and Actions are separate applications, so each has its own
+audience — that is why `.env` names them apart:
 
 ```dotenv
+# .env
+READER_ALLOWED_HOSTS=localhost,127.0.0.1,mail-reader.example.com
 PROXY_ALLOWED_HOSTS=localhost,127.0.0.1,mail-actions.example.com
+
 CLOUDFLARE_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-CLOUDFLARE_ACCESS_AUD=ACTIONS_APPLICATION_AUD
 CLOUDFLARE_ACCESS_EMAILS=user@example.com
+READER_ACCESS_AUD=READER_APPLICATION_AUD
+ACTIONS_ACCESS_AUD=ACTIONS_APPLICATION_AUD
 ```
 
-Use comma-separated addresses for more than one user. Restart the affected
-services:
+Compose hands each audience to the right service. Use comma-separated addresses
+for more than one user. Restart the affected services:
 
 ```sh
 docker compose up -d reader actions-proxy
@@ -170,15 +164,12 @@ the JWT signature, issuer, audience, and allowed email address as defense in
 depth. A static MCP bearer token still works when requests reach the origin
 directly, which is why the origin must remain bound to loopback.
 
-Set the public approval URL in `local-config/actions.env`:
+Set the public approval URL, the Worker hostname and the trusted proxy depth in
+the same `.env`:
 
 ```dotenv
+# .env
 APPROVAL_BASE_URL=https://mail-approve.example.com
-```
-
-Set the Worker hostname and trusted proxy depth in `local-config/worker.env`:
-
-```dotenv
 WORKER_ALLOWED_HOSTS=localhost,127.0.0.1,worker,mail-approve.example.com
 TRUST_PROXY_HOPS=1
 ```
