@@ -9,6 +9,27 @@ The suite exposes two independent Streamable HTTP MCP endpoints:
 
 The approval UI is not an MCP endpoint.
 
+## Where approval happens
+
+Actions ships the approval page in three forms. Which one appears depends on the
+client, and all three end at the same Worker route with the same human secret.
+
+| Client | Surface |
+|---|---|
+| Claude web, Claude Desktop, ChatGPT, Cursor, VS Code Copilot | Approval app rendered inline in the conversation |
+| Claude Code and other terminal clients | URL-mode elicitation prompting for the approval page |
+| Anything else | Approval URL returned as text, as before |
+
+The inline app runs in the host's sandboxed iframe. It receives only a
+capability token and the Worker origin; it then loads the proposal, including
+the full body, straight from the Worker and posts the approval secret back to
+the same place. Neither the body nor the secret passes through the MCP host, so
+neither can appear in a conversation transcript.
+
+Rendering the app requires the Worker's approval hostname to be reachable from
+the browser and to allow the app's requests. See
+[Cloudflare Access](cloudflare.md) for the policy that covers `/approval/*/app*`.
+
 ## Claude and Claude Desktop
 
 For Claude's remote custom connectors, publish the endpoints through HTTPS and

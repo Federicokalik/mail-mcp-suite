@@ -35,6 +35,35 @@ test('CSRF signature is bound to proposal, date and action', () => {
   );
 });
 
+test('the approval app token is a distinct capability, not a CSRF token', () => {
+  const secret = 'csrf-secret-'.repeat(4);
+  const id = '2478a6a1-23ca-4f97-bfa7-74e9d50efca0';
+  const createdAt = '2026-07-25T12:00:00.000Z';
+  const token = signForm(secret, id, createdAt, 'app');
+
+  assert.equal(verifyFormSignature(token, secret, id, createdAt, 'app'), true);
+  // Holding the token must not stand in for the approve or cancel signature,
+  // and it must not carry over to another proposal.
+  assert.equal(
+    verifyFormSignature(token, secret, id, createdAt, 'approve'),
+    false
+  );
+  assert.equal(
+    verifyFormSignature(token, secret, id, createdAt, 'cancel'),
+    false
+  );
+  assert.equal(
+    verifyFormSignature(
+      token,
+      secret,
+      '00000000-0000-4000-8000-000000000000',
+      createdAt,
+      'app'
+    ),
+    false
+  );
+});
+
 test('HTML escaping protects the fields shown on the confirmation page', () => {
   assert.equal(
     escapeHtml(`<script>alert("x")</script>'&`),

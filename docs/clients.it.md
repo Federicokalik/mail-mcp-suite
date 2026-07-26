@@ -9,6 +9,28 @@ La suite espone due endpoint MCP Streamable HTTP indipendenti:
 
 L'interfaccia di approvazione non è un endpoint MCP.
 
+## Dove avviene l'approvazione
+
+Actions offre la pagina di approvazione in tre forme. Quale compaia dipende dal
+client, e tutte e tre terminano sulla stessa rotta del Worker con lo stesso
+segreto umano.
+
+| Client | Superficie |
+|---|---|
+| Claude web, Claude Desktop, ChatGPT, Cursor, VS Code Copilot | App di approvazione mostrata dentro la conversazione |
+| Claude Code e altri client da terminale | Elicitation in URL mode che propone la pagina di approvazione |
+| Tutti gli altri | URL di approvazione restituito come testo, come prima |
+
+L'app in chat gira nell'iframe sandboxed del client. Riceve soltanto un token di
+capacità e l'origine del Worker; carica poi la proposta, corpo del messaggio
+compreso, direttamente dal Worker e gli rimanda il segreto di approvazione. Né
+il corpo né il segreto passano dall'host MCP, quindi nessuno dei due può
+comparire nel transcript della conversazione.
+
+Perché l'app funzioni, l'hostname di approvazione del Worker deve essere
+raggiungibile dal browser e accettarne le richieste. Vedere
+[Cloudflare Access](cloudflare.it.md) per la policy che copre `/approval/*/app*`.
+
 ## Claude e Claude Desktop
 
 Per i connettori personalizzati remoti di Claude, pubblicare prima gli endpoint

@@ -3,6 +3,8 @@ import { t } from './i18n.js';
 export type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;
   isError?: boolean;
+  /** Carried to the MCP App only; hosts keep it out of the model's context. */
+  _meta?: Record<string, unknown>;
 };
 
 export function toolOk(payload: unknown, characterLimit: number): ToolResult {

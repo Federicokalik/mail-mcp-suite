@@ -23,7 +23,8 @@ MCP client
                             +-- internal queue API
                                     |
                                     +-- worker
-                                         +-- approval UI
+                                         +-- approval UI (pagina browser e app
+                                         |   in chat, stesse rotte)
                                          +-- persistent outbox
                                          +-- SMTP delivery
                                          +-- approved IMAP MOVE
@@ -63,6 +64,20 @@ alternativa:
 Dopo aver validato un'asserzione Cloudflare, il proxy la sostituisce con il token
 bearer interno di Actions. Il container Actions resta sulla rete interna `control`
 e non dispone di alcuna rete esterna diretta.
+
+Actions serve inoltre l'app di approvazione come risorsa MCP `ui://`. I client
+che supportano MCP Apps recuperano quella risorsa e la mostrano in un iframe
+sandboxed accanto alla conversazione. Actions consegna all'app soltanto un token
+di capacità valido per una proposta e l'origine del Worker; l'app carica poi la
+proposta e invia l'approvazione al Worker via HTTPS, scavalcando del tutto il
+canale MCP. È questo che tiene il corpo del messaggio e il segreto di
+approvazione fuori dal client e dal modello.
+
+Ai client che non possono renderizzare l'app, Actions propone invece la pagina
+nel browser tramite un'elicitation in URL mode: per questo il suo trasporto MCP
+gira in modalità stateful, perché una richiesta iniziata dal server ha bisogno
+di una sessione su cui viaggiare. Il Reader non ne ha necessità e resta
+stateless.
 
 ### Worker
 

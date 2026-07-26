@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   type CreateMoveProposal,
   type CreateProposal,
@@ -9,6 +10,27 @@ import {
 import { actionsConfig } from './config.js';
 
 type ErrorPayload = { error?: string; message?: string };
+
+/**
+ * A created proposal plus the two handles the in-chat approval app needs: where
+ * to reach the worker and the capability token that authenticates it there.
+ * Actions never learns the approval secret, so it still cannot approve.
+ */
+export type CreatedProposal = {
+  proposal: PublicProposal;
+  approvalUrl: string;
+  appToken: string;
+};
+
+function created(payload: unknown): CreatedProposal {
+  const body = payload as { proposal?: unknown; appToken?: unknown };
+  const proposal = PublicProposalSchema.parse(body.proposal);
+  return {
+    proposal,
+    approvalUrl: `${actionsConfig.APPROVAL_BASE_URL}/approval/${proposal.id}`,
+    appToken: z.string().min(1).parse(body.appToken)
+  };
+}
 
 async function request(path: string, init: RequestInit = {}): Promise<unknown> {
   const response = await fetch(new URL(path, actionsConfig.WORKER_INTERNAL_URL), {
@@ -28,34 +50,26 @@ async function request(path: string, init: RequestInit = {}): Promise<unknown> {
   return payload;
 }
 
-export async function createProposal(input: CreateProposal): Promise<{
-  proposal: PublicProposal;
-  approvalUrl: string;
-}> {
-  const payload = (await request('/api/proposals', {
-    method: 'POST',
-    body: JSON.stringify(input)
-  })) as { proposal?: unknown };
-  const proposal = PublicProposalSchema.parse(payload.proposal);
-  return {
-    proposal,
-    approvalUrl: `${actionsConfig.APPROVAL_BASE_URL}/approval/${proposal.id}`
-  };
+export async function createProposal(
+  input: CreateProposal
+): Promise<CreatedProposal> {
+  return created(
+    await request('/api/proposals', {
+      method: 'POST',
+      body: JSON.stringify(input)
+    })
+  );
 }
 
-export async function createMoveProposal(input: CreateMoveProposal): Promise<{
-  proposal: PublicProposal;
-  approvalUrl: string;
-}> {
-  const payload = (await request('/api/proposals', {
-    method: 'POST',
-    body: JSON.stringify(input)
-  })) as { proposal?: unknown };
-  const proposal = PublicProposalSchema.parse(payload.proposal);
-  return {
-    proposal,
-    approvalUrl: `${actionsConfig.APPROVAL_BASE_URL}/approval/${proposal.id}`
-  };
+export async function createMoveProposal(
+  input: CreateMoveProposal
+): Promise<CreatedProposal> {
+  return created(
+    await request('/api/proposals', {
+      method: 'POST',
+      body: JSON.stringify(input)
+    })
+  );
 }
 
 export async function listProposals(
@@ -90,17 +104,11 @@ export async function cancelProposal(id: string): Promise<PublicProposal> {
 export async function restoreMoveProposal(
   id: string,
   input: { idempotencyKey: string; note: string | null }
-): Promise<{ proposal: PublicProposal; approvalUrl: string }> {
-  const payload = (await request(
-    `/api/proposals/${encodeURIComponent(id)}/restore`,
-    {
+): Promise<CreatedProposal> {
+  return created(
+    await request(`/api/proposals/${encodeURIComponent(id)}/restore`, {
       method: 'POST',
       body: JSON.stringify(input)
-    }
-  )) as { proposal?: unknown };
-  const proposal = PublicProposalSchema.parse(payload.proposal);
-  return {
-    proposal,
-    approvalUrl: `${actionsConfig.APPROVAL_BASE_URL}/approval/${proposal.id}`
-  };
+    })
+  );
 }

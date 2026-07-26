@@ -12,7 +12,12 @@ endpoints:
 - **Mail Actions** — create proposals for sends, schedules, moves, restores, and
   cancellations;
 - **Mail Worker** — a non-MCP service that persists proposals and executes them
-  only after a human confirms the browser approval page.
+  only after a human confirms them.
+
+Confirmation happens in the chat itself on hosts that support MCP Apps — Claude
+web and Desktop, ChatGPT, Cursor, VS Code Copilot — and on the browser approval
+page everywhere else. Both read the proposal from the Worker and require the
+same human approval secret. See [docs/clients.md](docs/clients.md).
 
 ## Choose the smallest tool that fits
 
@@ -40,8 +45,10 @@ See [Acknowledgements and prior art](ACKNOWLEDGEMENTS.md).
 - The Actions MCP has no IMAP or SMTP credentials.
 - The Worker is not an MCP server.
 - Every send, schedule, move, and restore starts in `pending_approval`.
-- Approval requires a browser review, an independent human secret, and a signed
-  CSRF field.
+- Approval requires a human review of the stored proposal, an independent human
+  secret, and a signed CSRF field.
+- No MCP tool can approve a proposal, in chat or otherwise; the message body and
+  the approval secret never pass through the LLM host.
 - The Worker does not retry ambiguous SMTP deliveries or IMAP moves.
 - There is no delete or Trash tool.
 - Compose binds to `127.0.0.1` by default.

@@ -20,13 +20,36 @@ import {
   bearerToken,
   hostAllowed,
   secretMatches,
+  signForm,
   verifyFormSignature
 } from '../common/security.js';
 import { t } from '../common/i18n.js';
 import { movePolicy, recipientPolicy, workerConfig } from './config.js';
 import { prepareMoveItems, reverseMovedItems } from './imap-move.js';
-import { renderApproval, renderSimple, renderStatus } from './approval-ui.js';
+import {
+  approvalView,
+  renderApproval,
+  renderSimple,
+  renderStatus
+} from './approval-ui.js';
 import type { ProposalStore } from './store.js';
+
+const APP_ROUTE = /^\/approval\/[^/]+\/app(-approve|-cancel)?$/;
+
+/**
+ * Capability token for the in-chat approval app. It is handed to Actions over
+ * the internal control network and forwarded to the app, never to the model in
+ * a form it can use on its own: approving still requires the CSRF signature and
+ * the human approval secret, neither of which travels through the LLM host.
+ */
+function appToken(proposal: { id: string; createdAt: string }): string {
+  return signForm(
+    workerConfig.APPROVAL_CSRF_SECRET,
+    proposal.id,
+    proposal.createdAt,
+    'app'
+  );
+}
 
 function securityHeaders(_request: Request, response: Response, next: NextFunction): void {
   response.setHeader('Cache-Control', 'no-store');
@@ -106,7 +129,10 @@ export function startWorkerServer(store: ProposalStore): Server {
         idempotencyKey: input.idempotencyKey,
         note: input.note
       });
-      response.status(201).json({ proposal: publicProposal(proposal) });
+      response.status(201).json({
+        proposal: publicProposal(proposal),
+        appToken: appToken(proposal)
+      });
       return;
     }
 
@@ -120,7 +146,9 @@ export function startWorkerServer(store: ProposalStore): Server {
     }
     validateSchedule(input.scheduledFor);
     const proposal = await store.create(input);
-    response.status(201).json({ proposal: publicProposal(proposal) });
+    response
+      .status(201)
+      .json({ proposal: publicProposal(proposal), appToken: appToken(proposal) });
   });
 
   app.get('/api/proposals', async (request, response) => {
@@ -179,7 +207,10 @@ export function startWorkerServer(store: ProposalStore): Server {
       idempotencyKey: input.idempotencyKey,
       note: input.note ?? t.worker.restoreNote(original.id)
     });
-    response.status(201).json({ proposal: publicProposal(proposal) });
+    response.status(201).json({
+      proposal: publicProposal(proposal),
+      appToken: appToken(proposal)
+    });
   });
 
   app.use('/approval', express.urlencoded({ extended: false, limit: '16kb' }));
@@ -286,6 +317,111 @@ export function startWorkerServer(store: ProposalStore): Server {
     response.send(renderStatus(cancelled));
   });
 
+  // The in-chat approval app runs in a sandboxed iframe: its requests carry
+  // "Origin: null" and no cookies, so these routes authenticate on the
+  // capability token alone and never rely on a browser session. Approving still
+  // needs the CSRF signature and the human approval secret on top of it.
+  const appCors = (
+    request: Request,
+    response: Response,
+    next: NextFunction
+  ): void => {
+    response.setHeader('Access-Control-Allow-Origin', '*');
+    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.setHeader(
+      'Access-Control-Allow-Headers',
+      'authorization, content-type'
+    );
+    response.setHeader('Access-Control-Max-Age', '600');
+    if (request.method === 'OPTIONS') {
+      response.status(204).end();
+      return;
+    }
+    next();
+  };
+
+  // A missing proposal and a bad token answer identically so that these
+  // Access-exempt routes cannot be used to probe which proposals exist.
+  const proposalForApp = async (
+    request: Request,
+    response: Response
+  ): Promise<Awaited<ReturnType<ProposalStore['get']>>> => {
+    const unauthorized = (): undefined => {
+      response.setHeader('WWW-Authenticate', 'Bearer');
+      response.status(401).json({ error: 'unauthorized' });
+      return undefined;
+    };
+    const parsed = z.string().uuid().safeParse(request.params.id);
+    if (!parsed.success) return unauthorized();
+    const proposal = await store.get(parsed.data);
+    if (!proposal) return unauthorized();
+    const presented = bearerToken(request.header('authorization'));
+    const valid = verifyFormSignature(
+      presented,
+      workerConfig.APPROVAL_CSRF_SECRET,
+      proposal.id,
+      proposal.createdAt,
+      'app'
+    );
+    return valid ? proposal : unauthorized();
+  };
+
+  const appJson = express.json({ limit: '16kb' });
+
+  for (const path of [
+    '/approval/:id/app',
+    '/approval/:id/app-approve',
+    '/approval/:id/app-cancel'
+  ]) {
+    app.options(path, appCors);
+  }
+
+  app.get('/approval/:id/app', appCors, async (request, response) => {
+    const proposal = await proposalForApp(request, response);
+    if (!proposal) return;
+    response.json({ view: approvalView(proposal) });
+  });
+
+  for (const action of ['approve', 'cancel'] as const) {
+    app.post(
+      `/approval/:id/app-${action}`,
+      appCors,
+      approvalLimiter,
+      appJson,
+      async (request, response) => {
+        const proposal = await proposalForApp(request, response);
+        if (!proposal) return;
+
+        const validCsrf = verifyFormSignature(
+          request.body?.csrf,
+          workerConfig.APPROVAL_CSRF_SECRET,
+          proposal.id,
+          proposal.createdAt,
+          action
+        );
+        if (!validCsrf) {
+          response
+            .status(403)
+            .json({ error: 'invalid_csrf', message: t.worker.invalidCsrf });
+          return;
+        }
+        if (!secretMatches(request.body?.secret, workerConfig.APPROVAL_SECRET)) {
+          response.status(401).json({
+            error: 'wrong_secret',
+            message: t.worker.wrongApprovalSecret
+          });
+          return;
+        }
+
+        const updated =
+          action === 'approve'
+            ? await store.approve(proposal.id)
+            : await store.cancel(proposal.id);
+        response.json({ view: approvalView(updated) });
+      }
+    );
+  }
+
   app.use(
     (
       error: unknown,
@@ -295,7 +431,7 @@ export function startWorkerServer(store: ProposalStore): Server {
     ) => {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[mail-worker] ${request.method} ${request.path}: ${message}`);
-      if (request.path.startsWith('/api/')) {
+      if (request.path.startsWith('/api/') || APP_ROUTE.test(request.path)) {
         response.status(400).json({ error: 'request_failed', message });
       } else {
         response

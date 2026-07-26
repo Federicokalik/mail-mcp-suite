@@ -12,7 +12,13 @@ indipendenti:
 - **Mail Actions** — crea proposte di invio, programmazione, spostamento, ripristino e
   annullamento;
 - **Mail Worker** — un servizio non MCP che persiste le proposte e le esegue
-  solo dopo la conferma umana sulla pagina di approvazione nel browser.
+  solo dopo la conferma umana.
+
+La conferma avviene dentro la chat sui client che supportano MCP Apps — Claude
+web e Desktop, ChatGPT, Cursor, VS Code Copilot — e sulla pagina di approvazione
+nel browser in tutti gli altri casi. Entrambe leggono la proposta dal Worker e
+richiedono lo stesso segreto umano di approvazione. Vedere
+[docs/clients.it.md](docs/clients.it.md).
 
 ## Scegliere lo strumento più semplice adatto allo scopo
 
@@ -40,8 +46,10 @@ Vedere [Riconoscimenti e lavori precedenti](ACKNOWLEDGEMENTS.it.md).
 - L'MCP Actions non possiede credenziali IMAP o SMTP.
 - Il Worker non è un server MCP.
 - Ogni invio, programmazione, spostamento e ripristino parte in stato `pending_approval`.
-- L'approvazione richiede una revisione nel browser, un segreto umano indipendente e un
-  campo CSRF firmato.
+- L'approvazione richiede una revisione umana della proposta memorizzata, un
+  segreto umano indipendente e un campo CSRF firmato.
+- Nessuno strumento MCP può approvare una proposta, né in chat né altrove; il
+  corpo del messaggio e il segreto di approvazione non passano mai dall'host LLM.
 - Il Worker non ritenta consegne SMTP o spostamenti IMAP dall'esito ambiguo.
 - Non esiste alcuno strumento di cancellazione o di Cestino.
 - Compose si lega a `127.0.0.1` per impostazione predefinita.
