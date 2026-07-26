@@ -13,11 +13,13 @@ These variables belong in the repository-root `.env`, copied from
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `MAIL_MCP_IMAGE` | `mail-mcp-suite:local` | Image name built and used by Compose |
+| `MAIL_MCP_IMAGE` | `mail-mcp-suite:local` | Image Compose runs; a published `ghcr.io/...` tag, or the local name when building with `compose.build.yaml` |
 | `MAIL_MCP_CONFIG_DIR` | `./local-config` | Directory containing service env files and `secrets/` |
 | `MAIL_MCP_BIND_ADDRESS` | `127.0.0.1` | Host interface for ports 3333, 3334, and 7337 |
 
-Compose `.env` is ignored by Git.
+Compose `.env` is ignored by Git. These three are read by Compose itself and are
+never injected into a container; per-service settings live in the files below,
+each mounted into one service only.
 
 ## Language
 

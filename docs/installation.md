@@ -15,16 +15,26 @@ loopback binding unless you explicitly need LAN access.
 
 ## 1. Prepare configuration
 
-Create a private configuration tree. `local-config/` is ignored by Git.
+Configuration sits at two levels, and they are deliberately not merged:
+
+- `.env` in the repository root holds the three variables Compose itself needs
+  to interpolate `compose.yaml` — which image to run, where the configuration
+  tree lives, and which address to bind. It is never injected into a container.
+- `local-config/<service>.env` holds the settings of one service and is mounted
+  into that container only. Keeping them apart is what stops the Reader from
+  seeing SMTP settings and Actions from seeing approval settings.
+
+Create both. Everything below is ignored by Git.
 
 ```sh
+cp config/compose.env.example .env
 mkdir -p local-config/secrets
 cp config/reader.env.example local-config/reader.env
 cp config/actions.env.example local-config/actions.env
 cp config/actions-proxy.env.example local-config/actions-proxy.env
 cp config/worker.env.example local-config/worker.env
 chmod 700 local-config local-config/secrets
-chmod 600 local-config/*.env
+chmod 600 .env local-config/*.env
 ```
 
 Edit the four `.env` files:
@@ -74,9 +84,10 @@ ownership narrowly. Do not make the files world-readable.
 ## 3. Validate and start
 
 Tagged releases publish a multi-architecture image to GHCR. To use it, point
-`MAIL_MCP_IMAGE` at the tag you want and skip the build:
+`MAIL_MCP_IMAGE` at the tag you want in the root `.env` and skip the build:
 
 ```dotenv
+# .env
 MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:2.1.0
 ```
 
@@ -119,12 +130,11 @@ message.
 ## 4. Bind to a LAN address
 
 The default binds all published ports to `127.0.0.1`. To expose them on one
-specific LAN interface, create a repository-local `.env`:
+specific LAN interface, edit the root `.env` created in step 1:
 
 ```dotenv
+# .env
 MAIL_MCP_BIND_ADDRESS=192.0.2.10
-MAIL_MCP_CONFIG_DIR=./local-config
-MAIL_MCP_IMAGE=mail-mcp-suite:local
 ```
 
 Replace `192.0.2.10` with an address actually assigned to the host. Do not use
