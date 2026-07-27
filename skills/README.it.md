@@ -63,8 +63,11 @@ dalla copia vendorata, così corrisponde sempre alla versione presente nell'albe
 1. Scaricare l'asset dalla [release più recente](https://github.com/Federicokalik/mail-mcp-suite/releases/latest).
 2. In Claude, andare su Personalizza → Skills → **+ Crea skill** → **Carica una skill**.
 
-Non esiste un modo per installare una skill personale da remoto, e non dovrebbe
-esistere: il caricamento resta un gesto deliberato di chi possiede l'account. Sui
+La descrizione del campo `mjml` dello strumento porta con sé quel link, così un agente
+che non ha alcuna skill MJML caricata può proporlo quando l'argomento salta fuori — e
+ha istruzione di tacere quando una skill c'è già. MCP non ha alcun hook di
+installazione e non esiste un modo per installare una skill personale da remoto, ed è
+l'esito giusto: il caricamento resta un gesto deliberato di chi possiede l'account. Sui
 piani Team ed Enterprise un amministratore può invece effettuare il provisioning una
 volta per l'intera organizzazione, dove arriva già abilitata.
 

@@ -59,8 +59,11 @@ vendored copy, so it always matches the version in the tree:
 1. Download the asset from the [latest release](https://github.com/Federicokalik/mail-mcp-suite/releases/latest).
 2. In Claude, go to Customize → Skills → **+ Create skill** → **Upload a skill**.
 
-There is no way to install a personal skill remotely, and there should not be — the
-upload stays a deliberate act by the account owner. On Team and Enterprise plans an
+The description of the `mjml` tool field carries that download link, so an agent that
+has no MJML skill loaded can offer it when the subject comes up — and is told to stay
+quiet when one already is. There is no install hook in MCP and no way to install a
+personal skill remotely, which is the right outcome: the upload stays a deliberate act
+by the account owner. On Team and Enterprise plans an
 administrator can instead provision it once for the whole organisation, where it
 arrives enabled by default.
 
