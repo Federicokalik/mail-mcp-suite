@@ -1,5 +1,13 @@
 name: Release
 
+# Two entry points, one path. Pushing a `v*` tag releases what that tag points at.
+# Running this workflow by hand on main reads the version from package.json, creates the tag
+# and carries on in the same run — a tag created with GITHUB_TOKEN does not trigger workflows,
+# so tagging in a separate workflow would need a personal access token and would publish
+# nothing on its own.
+#
+# The tag stays a deliberate act either way. Publishing to a public registry cannot be undone
+# once someone has pulled the image, so nothing here fires on a merge.
 on:
   push:
     tags:
@@ -14,8 +22,78 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      major_minor: ${{ steps.resolve.outputs.major_minor }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the version
+        id: resolve
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            version="$(node -p "require('./package.json').version")"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+          echo "major_minor=${version%.*}" >> "$GITHUB_OUTPUT"
+
+      # A release with no notes is a release nobody can read. Fail before anything is published.
+      - name: Require changelog notes
+        run: |
+          set -euo pipefail
+          version="${{ steps.resolve.outputs.version }}"
+          grep -q "^## \[${version}\]" CHANGELOG.md || {
+            echo "CHANGELOG.md has no '## [${version}]' section."
+            exit 1
+          }
+
+      - name: Require the tag and package.json to agree
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          declared="$(node -p "require('./package.json').version")"
+          expected="${{ steps.resolve.outputs.version }}"
+          test "${declared}" = "${expected}" || {
+            echo "The tag says ${expected} but package.json says ${declared}."
+            exit 1
+          }
+
+      - name: Create and push the tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          tag="${{ steps.resolve.outputs.tag }}"
+          test "${GITHUB_REF}" = "refs/heads/main" || {
+            echo "Releases are cut from main; this ran on ${GITHUB_REF}."
+            exit 1
+          }
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "${tag} already exists. Bump the version in package.json first."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${tag}" -m "Release ${{ steps.resolve.outputs.version }}"
+          git push origin "${tag}"
+
   image:
     name: Publish container image
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -25,8 +103,10 @@ jobs:
       attestations: write
 
     steps:
-      - name: Check out repository
+      - name: Check out the tagged commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -58,14 +138,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Derived from the resolved version rather than the ref, so a manual run tags the image
+      # the same way a tag push does.
       - name: Derive tags and labels
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ needs.version.outputs.version }}
+            type=raw,value=${{ needs.version.outputs.major_minor }}
             type=sha,format=long
 
       - name: Build and push
@@ -88,3 +170,53 @@ jobs:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+
+  notes:
+    name: Publish the GitHub release
+    needs: [version, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      # The changelog is the release notes; this only lifts the right section out of it, so the
+      # two can never drift.
+      - name: Extract the changelog section
+        run: |
+          set -euo pipefail
+          version="${{ needs.version.outputs.version }}"
+          # Literal prefix comparison rather than a dynamic regex: the bracket escaping awk
+          # needs for "## [x.y.z]" is easy to get subtly wrong, and getting it wrong here
+          # yields an empty release note instead of an error.
+          awk -v ver="${version}" '
+            index($0, "## [" ver "]") == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || {
+            echo "No changelog body found for ${version}."
+            exit 1
+          }
+          printf '\n---\n\n```sh\ndocker pull ghcr.io/%s:%s\n```\n' \
+            "${GITHUB_REPOSITORY,,}" "${version}" >> notes.md
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.version.outputs.tag }}"
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release edit "${tag}" --notes-file notes.md
+          else
+            gh release create "${tag}" \
+              --title "${tag}" \
+              --notes-file notes.md \
+              --verify-tag
+          fi

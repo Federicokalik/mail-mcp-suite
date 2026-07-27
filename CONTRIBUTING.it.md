@@ -43,6 +43,27 @@ rg -n --hidden \
 Il comando produce intenzionalmente falsi positivi nella documentazione e negli schemi.
 Esaminare ogni corrispondenza invece di eliminarla ciecamente.
 
+## Rilasci
+
+I rilasci partono da `main` e sono sempre un gesto deliberato: nulla viene pubblicato
+su un merge, perché un'immagine che qualcuno ha già scaricato non si richiama indietro.
+
+1. Aggiornare `version` in `package.json`, aggiungere la sezione `## [x.y.z]`
+   corrispondente in `CHANGELOG.md` e aggiornare il tag immagine citato in
+   `README.md`, `README.it.md` e `docs/installation*.md`.
+2. Portare tutto su `main`.
+3. Avviare il workflow **Release** dalla scheda Actions, oppure
+   `gh workflow run release.yml --ref main`.
+
+Il workflow legge la versione da `package.json`, si rifiuta di proseguire se il
+changelog non ha la sezione corrispondente o se il tag esiste già, poi crea e pusha
+`vx.y.z`, pubblica l'immagine multi-architettura su GHCR con provenance e SBOM, e
+apre la release GitHub usando la sezione del changelog come note.
+
+Pushare a mano un tag `vx.y.z` fa la stessa cosa, senza la creazione del tag. In quel
+percorso il workflow verifica in più che tag e `package.json` coincidano, così un tag
+digitato male fallisce prima che venga pubblicato qualcosa.
+
 ## Licenza
 
 Contribuendo, si accetta che il proprio contributo sia rilasciato con licenza
