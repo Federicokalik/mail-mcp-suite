@@ -47,3 +47,8 @@ Review every match rather than blindly deleting it.
 By contributing, you agree that your contribution is licensed under
 `AGPL-3.0-only`. Do not submit code copied from a source without a compatible
 license and preserved notices.
+
+`skills/` is the one place holding third-party material, imported with
+`git subtree` and left unmodified. Do not edit those files: send the change
+upstream and pull it back. Every entry there is recorded in
+[ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) with its licence status.

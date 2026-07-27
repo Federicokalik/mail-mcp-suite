@@ -6,6 +6,7 @@ coverage
 local-config
 data
 secrets
+skills
 tests
 *.log
 outbox.backup.json
