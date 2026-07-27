@@ -29,10 +29,11 @@ ultimo push risale al 28-02-2026.
 La licenza MIT chiede che la nota di copyright sia preservata nelle copie. Qui non
 c'è alcuna nota da preservare, ed è il motivo per cui questa sezione esiste: la
 concessione è dichiarata ma incompleta. Il materiale è vendorato senza modifiche,
-con la provenienza registrata, sulla base di quella dichiarazione. Se upstream
-pubblicherà un file `LICENSE`, sostituire questa sezione con i termini reali. Se
-upstream dichiarerà termini incompatibili con `AGPL-3.0-only`, rimuovere la
-directory.
+con la provenienza registrata, sulla base di quella dichiarazione. Un file
+`LICENSE` è stato richiesto a monte in
+[framix-team/skill-email-html-mjml#2](https://github.com/framix-team/skill-email-html-mjml/issues/2).
+Quando arriverà, sostituire questa sezione con i termini reali. Se upstream
+dichiarerà termini incompatibili con `AGPL-3.0-only`, rimuovere la directory.
 
 ### Aggiornamento
 

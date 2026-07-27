@@ -28,9 +28,10 @@ pushed on 2026-02-28.
 MIT asks that the copyright notice be preserved in copies. There is no notice to
 preserve here, which is why this section exists: the grant is stated but
 incomplete. The material is vendored unmodified, with its provenance recorded, on
-the strength of that stated grant. If upstream publishes a `LICENSE` file, replace
-this section with the real terms. If upstream declares terms incompatible with
-`AGPL-3.0-only`, remove the directory.
+the strength of that stated grant. A `LICENSE` file has been requested upstream in
+[framix-team/skill-email-html-mjml#2](https://github.com/framix-team/skill-email-html-mjml/issues/2).
+When it lands, replace this section with the real terms. If upstream declares terms
+incompatible with `AGPL-3.0-only`, remove the directory.
 
 ### Updating
 

@@ -32,9 +32,10 @@ riporta `license: null`. Questa era la situazione al 27-07-2026. La licenza MIT
 chiede che una nota di copyright sia preservata nelle copie, e qui non ce n'è
 alcuna da preservare: la concessione è quindi dichiarata ma incompleta. Il lavoro è
 incluso sulla base di quella dichiarazione, mantenuto senza modifiche e registrato
-qui invece che assorbito in silenzio. Sostituire questo paragrafo con i termini
-reali se upstream li pubblicherà; rimuovere la directory se i termini risultassero
-incompatibili con `AGPL-3.0-only`.
+qui invece che assorbito in silenzio. Un file `LICENSE` è stato richiesto a monte
+in [framix-team/skill-email-html-mjml#2](https://github.com/framix-team/skill-email-html-mjml/issues/2).
+Sostituire questo paragrafo con i termini reali quando arriveranno; rimuovere la
+directory se i termini risultassero incompatibili con `AGPL-3.0-only`.
 
 Vedere [skills/README.it.md](skills/README.it.md) per i comandi di importazione e
 aggiornamento.

@@ -30,9 +30,11 @@ Its README declares `MIT` under a `License` heading, but the repository carries 
 `license: null`. That was the state on 2026-07-27. MIT asks that a copyright notice
 be preserved in copies, and here there is none to preserve, so the grant is stated
 but incomplete. The work is included on the strength of that stated grant, kept
-unmodified, and recorded here rather than absorbed silently. Replace this paragraph
-with the real terms if upstream publishes them; remove the directory if the terms
-turn out to be incompatible with `AGPL-3.0-only`.
+unmodified, and recorded here rather than absorbed silently. A `LICENSE` file has
+been requested upstream in
+[framix-team/skill-email-html-mjml#2](https://github.com/framix-team/skill-email-html-mjml/issues/2).
+Replace this paragraph with the real terms once it lands; remove the directory if
+the terms turn out to be incompatible with `AGPL-3.0-only`.
 
 See [skills/README.md](skills/README.md) for the import and update commands.
 
