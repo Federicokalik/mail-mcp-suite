@@ -46,10 +46,28 @@ from upstream. Anything this project needs on top belongs outside this directory
 
 ### Using it
 
-Point your Claude Code skills directory at the skill folder, or copy it:
+**Claude Code.** Point your skills directory at the skill folder, or copy it:
 
 ```sh
 cp -r skills/framix-email-html-mjml/email-html-mjml ~/.claude/skills/
+```
+
+**claude.ai.** Personal skills are uploaded as a ZIP whose root is the skill folder.
+Every release attaches a ready-made `email-html-mjml-skill.zip`, built from the
+vendored copy, so it always matches the version in the tree:
+
+1. Download the asset from the [latest release](https://github.com/Federicokalik/mail-mcp-suite/releases/latest).
+2. In Claude, go to Customize → Skills → **+ Create skill** → **Upload a skill**.
+
+There is no way to install a personal skill remotely, and there should not be — the
+upload stays a deliberate act by the account owner. On Team and Enterprise plans an
+administrator can instead provision it once for the whole organisation, where it
+arrives enabled by default.
+
+To build the ZIP yourself:
+
+```sh
+cd skills/framix-email-html-mjml && zip -r ../../email-html-mjml-skill.zip email-html-mjml
 ```
 
 The skill's own README documents its workflow and its `npx mjml` requirement.
