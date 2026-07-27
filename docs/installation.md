@@ -83,7 +83,7 @@ Tagged releases publish a multi-architecture image to GHCR. To use it, point
 
 ```dotenv
 # .env
-MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.1.0
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.1.1
 ```
 
 ```sh
