@@ -103,7 +103,7 @@ openssl rand -hex 32
 **3. Avvio.** Puntare `MAIL_MCP_IMAGE` nel `.env` a un'immagine pubblicata:
 
 ```dotenv
-MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.1.0
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.1.1
 ```
 
 ```sh

@@ -4,6 +4,38 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.1.1] - 2026-07-27
+
+### Added
+
+- Every release attaches `email-html-mjml-skill.zip`: the vendored MJML authoring
+  skill, packaged in the layout claude.ai expects for a personal skill upload — the
+  skill folder at the root of the archive. It is rebuilt from the vendored copy on
+  each release, so it follows whatever a `git subtree pull` brings in.
+- The `mjml` field description points at that asset, conditionally: an agent offers
+  it only when no MJML authoring skill is loaded in the session, and says nothing
+  when one already is. This is the only runtime change in this release.
+
+### Changed
+
+- Releases are cut from a single workflow run. Running **Release** by hand on `main`
+  reads the version from `package.json`, refuses to continue if the changelog has no
+  matching section or if the tag already exists, then creates the tag and carries on
+  in the same run. It has to be one run: a tag pushed with `GITHUB_TOKEN` does not
+  trigger workflows, so tagging from a separate workflow would have needed a personal
+  access token. Pushing a `vx.y.z` tag by hand still works, and now additionally
+  checks that the tag and `package.json` agree.
+- Container image tags are derived from the resolved version rather than from the
+  ref, so both entry points label the image identically.
+- The workflow publishes a GitHub release with the changelog section as its notes.
+  Until now `CHANGELOG.md` existed and nothing outside the repository ever showed it.
+
+### Security
+
+- No change to trust boundaries, credentials, the approval flow or the HTML preview.
+  The only difference reaching a running container is one tool-schema description
+  string.
+
 ## [3.1.0] - 2026-07-27
 
 ### Added
