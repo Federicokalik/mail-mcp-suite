@@ -30,6 +30,13 @@ type ApprovalView = {
   warning: string;
   rows: ApprovalRow[];
   body: string | null;
+  hasHtml: boolean;
+  labels: {
+    bodyText: string;
+    htmlNotRendered: string;
+    openApprovalPage: string;
+    scheduledNotice: string | null;
+  };
   moveRows: ApprovalMoveRow[];
   columns: {
     sender: string;
@@ -44,7 +51,7 @@ type ApprovalView = {
   actions: {
     approveLabel: string;
     cancelLabel: string;
-    secretPlaceholder: string;
+    secretLabel: string;
     approveCsrf: string;
     cancelCsrf: string;
   } | null;
@@ -166,11 +173,16 @@ function renderMoveTable(view: ApprovalView): HTMLElement {
 function renderActions(view: ApprovalView, failure?: string): HTMLElement {
   const actions = view.actions as NonNullable<ApprovalView['actions']>;
   const form = element('form');
+  const label = element('label', actions.secretLabel);
+  label.htmlFor = 'approval-secret';
   const secret = element('input');
+  secret.id = 'approval-secret';
   secret.type = 'password';
   secret.required = true;
-  secret.placeholder = actions.secretPlaceholder;
-  secret.autocomplete = 'current-password';
+  // Deliberately not 'current-password': a stored, autofilled approval secret is a secret the
+  // environment holds, and anything driving this browser could submit the form without knowing
+  // it. The knowledge factor is the whole point of the human approval step.
+  secret.autocomplete = 'new-password';
 
   const approve = element('button', actions.approveLabel, 'approve');
   approve.type = 'submit';
@@ -205,12 +217,38 @@ function renderActions(view: ApprovalView, failure?: string): HTMLElement {
   });
   cancel.addEventListener('click', () => void submit('cancel'));
 
-  form.append(secret, approve, cancel);
+  const buttons = element('div', undefined, 'actions');
+  buttons.append(approve, cancel);
+  form.append(label, secret, buttons);
 
   const container = element('div');
-  if (failure) container.append(element('p', failure, 'error'));
+  if (failure) {
+    const message = element('p', failure, 'error');
+    message.setAttribute('role', 'alert');
+    container.append(message);
+  }
   container.append(form);
   return container;
+}
+
+/**
+ * The HTML part is not rendered here. Inside the host's iframe the frame policy is not ours to
+ * set, and a message rendered without its styles is still convincing enough to be approved —
+ * which is exactly the mistake this whole flow exists to prevent. So the app says the HTML is
+ * not shown and sends the reviewer to the page that does render it faithfully.
+ */
+function renderHtmlFallback(view: ApprovalView): HTMLElement {
+  const box = element('div', undefined, 'fallback');
+  box.setAttribute('role', 'status');
+  box.append(element('p', view.labels.htmlNotRendered));
+  if (context) {
+    const link = element('a', view.labels.openApprovalPage);
+    link.href = `${context.approvalOrigin}/approval/${view.id}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    box.append(link);
+  }
+  return box;
 }
 
 function render(view: ApprovalView, failure?: string): void {
@@ -222,20 +260,35 @@ function render(view: ApprovalView, failure?: string): void {
 
   if (pending) {
     parts.push(element('p', view.warning, 'warning'));
+    if (view.labels.scheduledNotice) {
+      parts.push(element('p', view.labels.scheduledNotice, 'notice'));
+    }
   } else {
     parts.push(element('p', view.statusText));
   }
 
-  parts.push(renderRows(view));
-  if (view.kind === 'move') parts.push(renderMoveTable(view));
-  else if (view.body !== null) parts.push(element('pre', view.body));
-  if (view.error) parts.push(element('p', view.error, 'error'));
+  const card = element('div', undefined, 'card');
+  card.append(renderRows(view));
+  parts.push(card);
+
+  if (view.kind === 'move') {
+    parts.push(renderMoveTable(view));
+  } else if (view.body !== null) {
+    parts.push(element('h2', view.labels.bodyText));
+    parts.push(element('pre', view.body));
+    if (view.hasHtml) parts.push(renderHtmlFallback(view));
+  }
+  if (view.error) {
+    const failed = element('p', view.error, 'error');
+    failed.setAttribute('role', 'alert');
+    parts.push(failed);
+  }
   if (pending) parts.push(renderActions(view, failure));
 
   root.replaceChildren(...parts);
 }
 
-const app = new App({ name: 'mail-approval', version: '3.0.0' });
+const app = new App({ name: 'mail-approval', version: '3.1.0' });
 
 app.ontoolresult = (result) => {
   const next = readContext(result._meta);

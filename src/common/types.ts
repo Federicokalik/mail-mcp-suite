@@ -23,7 +23,11 @@ export const OutgoingMessageSchema = z.object({
   cc: emailList.optional(),
   bcc: emailList.optional(),
   subject: safeHeader,
+  // text stays mandatory even when html is present: it is the representation a human can
+  // review without a renderer, and it makes the delivered message a proper
+  // multipart/alternative rather than an HTML-only one.
   text: z.string().min(1).max(200_000),
+  html: z.string().min(1).max(200_000).optional(),
   inReplyTo: safeHeader.optional(),
   references: z.array(safeHeader).max(100).optional()
 });

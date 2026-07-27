@@ -16,7 +16,9 @@ const httpServer = startMcpHttpServer({
   port: actionsConfig.MCP_PORT,
   token: actionsConfig.MCP_TOKEN,
   allowedHosts: actionsConfig.MCP_ALLOWED_HOSTS,
-  jsonLimit: '1mb',
+  // A send can now carry a text part, an HTML part and an MJML source. 1mb was enough for a
+  // text-only body; going over it fails as an opaque 413 before any validation runs.
+  jsonLimit: '2mb',
   buildServer,
   // Terminal clients approve through elicitation, which needs a session the
   // server can send requests back on. The reader stays stateless.

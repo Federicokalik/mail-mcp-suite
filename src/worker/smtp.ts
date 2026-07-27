@@ -26,6 +26,9 @@ function mailOptions(message: OutgoingMessage): Mail.Options {
     bcc: message.bcc?.length ? message.bcc : undefined,
     subject: message.subject,
     text: message.text,
+    // With both parts set MailComposer emits multipart/alternative. The Sent copy reuses this
+    // same buffer, so there is exactly one MIME build per proposal.
+    html: message.html,
     inReplyTo: message.inReplyTo,
     references: message.references?.length ? message.references : undefined,
     date: new Date(),

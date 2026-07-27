@@ -4,6 +4,72 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.1.0] - 2026-07-27
+
+### Added
+
+- `mail_send` and `mail_schedule` accept an optional `html` body, delivered with
+  the text part as `multipart/alternative`. The Sent copy reuses the same MIME
+  buffer that went to SMTP, so nothing is rebuilt.
+- They also accept an `mjml` template, compiled to HTML by Actions. Compilation
+  happens once, at proposal creation, and only the resulting HTML is stored: the
+  bytes reviewed at approval time are the bytes handed to SMTP. `mj-include` is
+  refused so a template cannot read files from the container. `html` and `mjml`
+  are mutually exclusive, and `text` remains mandatory in both cases.
+- `GET /approval/:id/preview` serves the HTML body as its own document for the
+  sandboxed frame on the approval page.
+- `skills/framix-email-html-mjml`, an MJML authoring skill vendored from
+  [framix-team/skill-email-html-mjml](https://github.com/framix-team/skill-email-html-mjml)
+  via `git subtree`. See [skills/README.md](skills/README.md) and
+  [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) for attribution and licence status.
+
+### Changed
+
+- The browser approval page asks for the approval secret once, in a single
+  labelled field, instead of twice in two separate forms. Approve and cancel are
+  submit buttons carrying their own CSRF token, so the page still needs no
+  JavaScript.
+- Both approval surfaces were restyled around one set of semantic colour tokens
+  with a designed dark mode, visible field labels, `role="alert"` errors and
+  focus rings that are never removed. Recipients wrap instead of truncating, and
+  the Bcc row is always shown — an absent row and an empty one used to look the
+  same.
+- Scheduled proposals now state on the approval surface that approving grants the
+  send at its scheduled time, with no second check.
+- The JSON body limit on the Actions and Worker HTTP entry points rises from 1 MB
+  to 2 MB, since a proposal may now carry a text part, an HTML part and a
+  template.
+
+### Security
+
+- Both approval forms request `autocomplete="new-password"` instead of
+  `current-password`. A stored, autofilled approval secret is a secret the
+  environment holds, and anything able to drive the browser could submit the form
+  without knowing it — which would reduce the one control an agent cannot satisfy
+  to a button. `SECURITY.md` adds a matching production control.
+- MJML is compiled in Actions, never in the Worker. The Worker holds the SMTP and
+  IMAP credentials, the approval secret and the CSRF key; Actions holds none of
+  them, so the parser fed semi-trusted markup runs where a bug buys the least.
+- The HTML preview runs under `default-src 'none'; style-src 'unsafe-inline';
+  img-src data:; ... sandbox` in a frame with `sandbox=""`. No script executes and
+  no remote resource loads, so a tracking pixel cannot report that a message was
+  reviewed.
+- The in-chat app deliberately does not render HTML. Inside the host's iframe the
+  frame policy is the host's, and a message rendered without its styles is still
+  convincing enough to approve. The app says so and links to the approval page.
+- `mjml` adds roughly 200 transitive packages and a `brace-expansion` advisory
+  reached through `js-beautify`, which is only used for pretty-printing and is
+  disabled here. `SECURITY.md` records the assessment and the exit path.
+
+### Migration from 3.0.x
+
+1. `docker compose pull && docker compose up -d`
+2. No configuration changes are required.
+3. Rolling back to 3.0.x after sending HTML: the older schema silently drops the
+   `html` field when it reloads `outbox.json`, so a pending HTML proposal would
+   lose its HTML part rather than fail. Approve or cancel pending HTML proposals
+   before downgrading.
+
 ## [3.0.0] - 2026-07-26
 
 ### Changed

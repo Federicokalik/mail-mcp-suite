@@ -20,11 +20,14 @@ MCP client
                     |
                     +-- actions (no mail credentials)
                             |
+                            +-- MJML compilation
+                            |
                             +-- internal queue API
                                     |
                                     +-- worker
                                          +-- approval UI (pagina browser e app
                                          |   in chat, stesse rotte)
+                                         +-- anteprima HTML sandboxed
                                          +-- persistent outbox
                                          +-- SMTP delivery
                                          +-- approved IMAP MOVE
@@ -64,6 +67,12 @@ alternativa:
 Dopo aver validato un'asserzione Cloudflare, il proxy la sostituisce con il token
 bearer interno di Actions. Il container Actions resta sulla rete interna `control`
 e non dispone di alcuna rete esterna diretta.
+
+Actions è anche il punto in cui un template `mjml` viene compilato in HTML, una
+volta sola, prima che la proposta venga inviata. Il Worker riceve solo il corpo
+compilato. La collocazione è deliberata su entrambi i fronti: il parser resta
+fuori dal processo che detiene le credenziali, e compilare una sola volta rende
+identici i byte approvati e quelli consegnati.
 
 Actions serve inoltre l'app di approvazione come risorsa MCP `ui://`. I client
 che supportano MCP Apps recuperano quella risorsa e la mostrano in un iframe

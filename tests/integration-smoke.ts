@@ -189,6 +189,60 @@ try {
     'cancelled'
   );
 
+  // HTML send. The MJML source is compiled once, in Actions, and only the resulting HTML is
+  // stored, so the message reviewed on the approval page is the message that will be sent.
+  const htmlProposal = await actions.callTool({
+    name: 'mail_send',
+    arguments: {
+      to: ['recipient@example.com'],
+      subject: 'HTML smoke test',
+      text: 'Plain text fallback for the HTML smoke test',
+      mjml:
+        '<mjml><mj-body><mj-section><mj-column>' +
+        '<mj-text>Compiled by MJML</mj-text>' +
+        '</mj-column></mj-section></mj-body></mjml>'
+    }
+  });
+  assert.equal(htmlProposal.isError, undefined);
+  const htmlPayload = JSON.parse(toolText(htmlProposal)) as {
+    id: string;
+    approvalUrl: string;
+  };
+
+  const htmlApproval = await fetch(htmlPayload.approvalUrl);
+  const htmlApprovalPage = await htmlApproval.text();
+  assert.match(htmlApprovalPage, /Plain text fallback for the HTML smoke test/);
+  assert.match(htmlApprovalPage, /<iframe sandbox=""/);
+
+  const preview = await fetch(`${htmlPayload.approvalUrl}/preview`);
+  assert.equal(preview.status, 200);
+  assert.match(await preview.text(), /Compiled by MJML/);
+  const previewCsp = preview.headers.get('content-security-policy') ?? '';
+  assert.match(previewCsp, /default-src 'none'/);
+  assert.match(previewCsp, /img-src data:/);
+  assert.match(previewCsp, /sandbox/);
+  assert.doesNotMatch(previewCsp, /script-src/);
+  // The site-wide DENY would stop the approval page framing its own preview.
+  assert.equal(preview.headers.get('x-frame-options'), 'SAMEORIGIN');
+
+  // Supplying both parts is refused rather than silently resolved in favour of one.
+  const conflicting = await actions.callTool({
+    name: 'mail_send',
+    arguments: {
+      to: ['recipient@example.com'],
+      subject: 'Conflicting bodies',
+      text: 'Body',
+      html: '<p>one</p>',
+      mjml: '<mjml><mj-body></mj-body></mjml>'
+    }
+  });
+  assert.equal(conflicting.isError, true);
+
+  await actions.callTool({
+    name: 'mail_delivery_cancel',
+    arguments: { id: htmlPayload.id }
+  });
+
   // In-chat approval: the tool result hands the app a capability token, and the
   // app then talks to the worker directly. The body and the approval secret
   // never travel through the MCP channel.

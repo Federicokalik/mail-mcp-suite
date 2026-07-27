@@ -17,6 +17,7 @@ import {
 import { guardTool, toolOk, type ToolResult } from '../common/tool-result.js';
 import { t } from '../common/i18n.js';
 import { actionsConfig } from './config.js';
+import { compileMjml } from './mjml.js';
 import {
   cancelProposal,
   createMoveProposal,
@@ -58,32 +59,54 @@ const idempotencyKey = z
   .max(200)
   .regex(/^[A-Za-z0-9._:-]+$/);
 
+const HTML_LIMIT = 200_000;
+
 const messageInput = {
   to: emailList.min(1),
   cc: emailList.optional(),
   bcc: emailList.optional(),
   subject: headerValue,
-  text: z.string().min(1).max(200_000),
+  text: z.string().min(1).max(200_000).describe(t.actions.messageText),
+  html: z.string().min(1).max(HTML_LIMIT).optional().describe(t.actions.messageHtml),
+  mjml: z.string().min(1).max(100_000).optional().describe(t.actions.messageMjml),
   inReplyTo: headerValue.optional(),
   references: z.array(headerValue).max(100).optional(),
   note: z.string().max(500).optional()
 };
 
-function messageFromArguments(arguments_: {
+// Every field has to be listed here as well as in messageInput and OutgoingMessageSchema:
+// both zod objects strip unknown keys, so a field added in only one place disappears without
+// an error rather than failing loudly.
+async function messageFromArguments(arguments_: {
   to: string[];
   cc?: string[];
   bcc?: string[];
   subject: string;
   text: string;
+  html?: string;
+  mjml?: string;
   inReplyTo?: string;
   references?: string[];
-}): OutgoingMessage {
+}): Promise<OutgoingMessage> {
+  if (arguments_.html && arguments_.mjml) {
+    throw new Error(t.validation.htmlAndMjmlTogether);
+  }
+
+  let html = arguments_.html;
+  if (arguments_.mjml) {
+    html = await compileMjml(arguments_.mjml);
+    if (html.length > HTML_LIMIT) {
+      throw new Error(t.validation.mjmlOutputTooLarge(html.length, HTML_LIMIT));
+    }
+  }
+
   return OutgoingMessageSchema.parse({
     to: arguments_.to,
     cc: arguments_.cc,
     bcc: arguments_.bcc,
     subject: arguments_.subject,
     text: arguments_.text,
+    html,
     inReplyTo: arguments_.inReplyTo,
     references: arguments_.references
   });
@@ -231,7 +254,7 @@ export function registerActionsTools(server: McpServer): void {
         proposalResult(
           server,
           await createProposal({
-            message: messageFromArguments(arguments_),
+            message: await messageFromArguments(arguments_),
             scheduledFor: null,
             note: arguments_.note ?? null
           }),
@@ -266,7 +289,7 @@ export function registerActionsTools(server: McpServer): void {
         proposalResult(
           server,
           await createProposal({
-            message: messageFromArguments(arguments_),
+            message: await messageFromArguments(arguments_),
             scheduledFor: arguments_.scheduledFor,
             note: arguments_.note ?? null
           }),
