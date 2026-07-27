@@ -49,11 +49,29 @@ directory.
 
 ### Come usarla
 
-Puntare la directory delle skill di Claude Code alla cartella della skill, oppure
-copiarla:
+**Claude Code.** Puntare la propria directory delle skill alla cartella della skill,
+oppure copiarla:
 
 ```sh
 cp -r skills/framix-email-html-mjml/email-html-mjml ~/.claude/skills/
+```
+
+**claude.ai.** Le skill personali si caricano come ZIP la cui radice è la cartella
+della skill. Ogni release allega un `email-html-mjml-skill.zip` già pronto, costruito
+dalla copia vendorata, così corrisponde sempre alla versione presente nell'albero:
+
+1. Scaricare l'asset dalla [release più recente](https://github.com/Federicokalik/mail-mcp-suite/releases/latest).
+2. In Claude, andare su Personalizza → Skills → **+ Crea skill** → **Carica una skill**.
+
+Non esiste un modo per installare una skill personale da remoto, e non dovrebbe
+esistere: il caricamento resta un gesto deliberato di chi possiede l'account. Sui
+piani Team ed Enterprise un amministratore può invece effettuare il provisioning una
+volta per l'intera organizzazione, dove arriva già abilitata.
+
+Per costruire lo ZIP a mano:
+
+```sh
+cd skills/framix-email-html-mjml && zip -r ../../email-html-mjml-skill.zip email-html-mjml
 ```
 
 Il README della skill documenta il proprio flusso di lavoro e il requisito

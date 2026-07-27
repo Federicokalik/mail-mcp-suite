@@ -206,6 +206,17 @@ jobs:
           printf '\n---\n\n```sh\ndocker pull ghcr.io/%s:%s\n```\n' \
             "${GITHUB_REPOSITORY,,}" "${version}" >> notes.md
 
+      # claude.ai installs a personal skill from a ZIP whose root is the skill folder itself.
+      # Building it here means the asset always matches the vendored version, including after a
+      # `git subtree pull`, and nobody has to remember the required layout.
+      - name: Package the MJML skill
+        run: |
+          set -euo pipefail
+          cd skills/framix-email-html-mjml
+          zip -qr "${GITHUB_WORKSPACE}/email-html-mjml-skill.zip" email-html-mjml
+          cd "${GITHUB_WORKSPACE}"
+          unzip -l email-html-mjml-skill.zip | head -5
+
       - name: Create or update the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -214,9 +225,11 @@ jobs:
           tag="${{ needs.version.outputs.tag }}"
           if gh release view "${tag}" >/dev/null 2>&1; then
             gh release edit "${tag}" --notes-file notes.md
+            gh release upload "${tag}" email-html-mjml-skill.zip --clobber
           else
             gh release create "${tag}" \
               --title "${tag}" \
               --notes-file notes.md \
-              --verify-tag
+              --verify-tag \
+              email-html-mjml-skill.zip
           fi
