@@ -57,17 +57,24 @@ provider filters for deterministic sorting.
    `ALLOW_INSECURE_MAIL_TRANSPORT=false`.
 3. Generate the four machine secrets independently with a cryptographic RNG.
 4. Use a separate human approval secret; do not reuse a mail or MCP password.
-5. Keep `local-config/`, backups, and outbox data out of Git.
-6. Bind published ports to `127.0.0.1` unless a specific trusted interface is
+5. Do not let the browser's password manager store the approval secret, and
+   decline the offer to save it. The approval step is the one control an agent
+   driving the browser cannot satisfy, because the secret is the only thing in
+   the flow that is not present in the environment. A stored secret is autofilled
+   into the form, and an autofilled form can be submitted by anything that can
+   click. Both approval forms request `autocomplete="new-password"` to keep
+   managers from matching, but that is a hint to the browser, not a guarantee.
+6. Keep `local-config/`, backups, and outbox data out of Git.
+7. Bind published ports to `127.0.0.1` unless a specific trusted interface is
    required.
-7. Do not port-forward the services from a router.
-8. For Internet access, use HTTPS, Cloudflare Tunnel, and default-deny Access
+8. Do not port-forward the services from a router.
+9. For Internet access, use HTTPS, Cloudflare Tunnel, and default-deny Access
    policies.
-9. Enable Managed OAuth only for MCP endpoints, not as a replacement for the
-   approval secret.
-10. Restrict Docker daemon and backup access.
-11. Review client tool permissions; write-capable tools should always ask.
-12. Rotate affected secrets after any suspected leak.
+10. Enable Managed OAuth only for MCP endpoints, not as a replacement for the
+    approval secret.
+11. Restrict Docker daemon and backup access.
+12. Review client tool permissions; write-capable tools should always ask.
+13. Rotate affected secrets after any suspected leak.
 
 ## Authentication
 
@@ -145,6 +152,37 @@ Actions runs the MCP transport in stateful mode so that elicitation, a
 server-initiated request, can be delivered. Sessions are capped and evicted
 when idle. The Reader remains stateless.
 
+## HTML message bodies
+
+A send may carry an `html` part next to the mandatory `text` part, or an `mjml`
+template that Actions compiles into one. Three properties keep this from widening
+the trust boundary.
+
+**Compilation happens once, in the process without credentials.** MJML is
+compiled when the proposal is created, inside Actions, and only the resulting
+HTML is stored. The Worker holds SMTP and IMAP credentials, the approval secret
+and the CSRF key; Actions holds none of them, so the parser that chews on
+semi-trusted markup runs where a bug buys the least. Compiling once also means
+the HTML shown at approval time and the HTML handed to SMTP are the same bytes,
+with no second render in between. `mj-include` is rejected outright, so a
+template cannot read files from the container.
+
+**The preview cannot execute or phone home.** `/approval/:id/preview` serves the
+body as its own document under `default-src 'none'; style-src 'unsafe-inline';
+img-src data:; ... sandbox`, framed with `sandbox=""`. No script runs, no remote
+image, font or stylesheet loads, and no form can be submitted. A tracking pixel
+therefore cannot report that a message was reviewed, and a beacon cannot leak the
+approval URL. The frame is labelled as a preview with remote resources blocked so
+that missing images are not mistaken for the recipient's view.
+
+**The in-chat app does not render HTML at all.** Inside the host's iframe the
+frame policy belongs to the host, and a message rendered without its stylesheet
+still looks enough like a message to be approved on sight. The app shows the text
+part, states that the HTML was not rendered, and links to the approval page.
+
+The text part stays mandatory for the same reason: it is a representation of the
+message that cannot hide anything behind markup.
+
 ## Persistent data
 
 `outbox.json` contains message bodies, recipients, proposal notes, and move
@@ -213,7 +251,23 @@ Review advisories in context, but do not apply breaking or forced dependency
 changes without tests. Pin container base images and update them intentionally.
 Run a secret scanner against the complete Git history, not only the current tree.
 
-At version 3.0.0, `npm audit` reports
+At version 3.1.0, `mjml` is a production dependency and it is a large one: it
+brings roughly 200 transitive packages into an image that previously had few.
+`npm audit --omit=dev` reports
+[`GHSA-mh99-v99m-4gvg`](https://github.com/advisories/GHSA-mh99-v99m-4gvg)
+(`brace-expansion`, denial of service through unbounded expansion) many times
+over. The repetition is one advisory counted once per `mjml-*` sub-package: the
+single path is `brace-expansion` → `minimatch` → `editorconfig` → `js-beautify`
+→ `mjml-core`. `js-beautify` is only reached when MJML is asked to pretty-print
+its output, and `src/actions/mjml.ts` compiles with `beautify: false` and
+`minify: false`, so that path is not invoked. Nothing from a message body
+reaches `brace-expansion`, which consumes glob patterns rather than markup. The
+remedy npm proposes is a downgrade to `mjml@5.1.0`; do not take it blindly.
+Reassess when upstream unpins `js-beautify`. If this trade stops being
+acceptable, the feature degrades cleanly: dropping `mjml` leaves `html` working
+and only removes server-side template compilation.
+
+Also at version 3.1.0, `npm audit` reports
 [`GHSA-frvp-7c67-39w9`](https://github.com/advisories/GHSA-frvp-7c67-39w9)
 through the production MCP SDK dependency, now reached both directly and through
 `@modelcontextprotocol/ext-apps`. The advisory concerns the Hono Node

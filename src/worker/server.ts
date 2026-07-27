@@ -29,6 +29,7 @@ import { prepareMoveItems, reverseMovedItems } from './imap-move.js';
 import {
   approvalView,
   renderApproval,
+  renderPreviewDocument,
   renderSimple,
   renderStatus
 } from './approval-ui.js';
@@ -56,9 +57,11 @@ function securityHeaders(_request: Request, response: Response, next: NextFuncti
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('X-Frame-Options', 'DENY');
   response.setHeader('Referrer-Policy', 'no-referrer');
+  // frame-src 'self' exists for one thing: the sandboxed HTML preview of a message body, served
+  // by /approval/:id/preview. Nothing else on this origin is framed.
   response.setHeader(
     'Content-Security-Policy',
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+    "default-src 'none'; style-src 'unsafe-inline'; frame-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
   );
   response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
@@ -113,7 +116,8 @@ export function startWorkerServer(store: ProposalStore): Server {
     response.json({ status: 'ok', service: 'mail-worker' });
   });
 
-  app.use('/api', apiAuthentication, express.json({ limit: '1mb' }));
+  // Matches the Actions transport limit: a proposal may carry both a text and an HTML part.
+  app.use('/api', apiAuthentication, express.json({ limit: '2mb' }));
 
   app.post('/api/proposals', async (request, response) => {
     if (request.body?.kind === 'move') {
@@ -231,6 +235,31 @@ export function startWorkerServer(store: ProposalStore): Server {
       return;
     }
     response.send(proposal.status === 'pending_approval' ? renderApproval(proposal) : renderStatus(proposal));
+  });
+
+  /**
+   * The HTML body of a proposal, as its own document, for the sandboxed frame on the approval
+   * page. Two properties make showing untrusted markup here acceptable, and both have to hold:
+   * the frame carries `sandbox=""`, and this response replaces the site-wide policy with one
+   * that permits inline styles and data: images and nothing else. No script runs, and no remote
+   * fetch leaves the page — which is also why a tracking pixel cannot report that a message was
+   * reviewed. Remote images simply do not load, and the frame says so above it.
+   */
+  app.get('/approval/:id/preview', async (request, response) => {
+    const parsed = z.string().uuid().safeParse(request.params.id);
+    const proposal = parsed.success ? await store.get(parsed.data) : null;
+    if (!proposal || proposal.kind !== 'send' || !proposal.message.html) {
+      response.status(404).type('html').send('');
+      return;
+    }
+    response.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; " +
+        "frame-ancestors 'self'; base-uri 'none'; form-action 'none'; sandbox"
+    );
+    // The site-wide DENY would block the approval page's own frame.
+    response.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    response.type('html').send(renderPreviewDocument(proposal));
   });
 
   const approvalLimiter = rateLimit({

@@ -101,7 +101,7 @@ openssl rand -hex 32
 **3. Start.** Point `MAIL_MCP_IMAGE` in `.env` at a published image:
 
 ```dotenv
-MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.0.0
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.1.0
 ```
 
 ```sh
@@ -155,6 +155,34 @@ verification, LAN binding, backups, and uninstall.
 Actions returns an approval URL. The operation does not become active until the
 user reviews the page and enters the approval secret.
 
+## HTML messages
+
+`mail_send` and `mail_schedule` accept an optional body beyond `text`:
+
+| Field | Effect |
+|---|---|
+| `html` | HTML body, sent with `text` as `multipart/alternative` |
+| `mjml` | MJML template, compiled to HTML by Actions; mutually exclusive with `html` |
+
+`text` stays mandatory. It is the part a person can read without a renderer, it
+is what the approval page shows first, and it keeps the delivered message a
+proper `multipart/alternative`.
+
+MJML is compiled once, when the proposal is created, and only the resulting HTML
+is stored. The message reviewed at approval time and the message handed to SMTP
+are therefore the same bytes. Compilation runs inside Actions, which holds no
+SMTP, IMAP or approval credentials — the Worker never parses a template.
+`mj-include` is refused, so a template cannot pull files off the server.
+
+The approval page renders the HTML inside a frame that carries `sandbox=""` and
+a policy allowing inline styles and `data:` images only. No script runs and no
+remote resource loads, so a tracking pixel cannot report that a message was
+reviewed. Layout gaps where remote images would be are expected, and the frame
+says so.
+
+[`skills/framix-email-html-mjml`](skills/README.md) ships an MJML authoring
+skill for composing these templates.
+
 ## Remote access and Claude
 
 Do not expose the HTTP ports directly to the Internet. The recommended setup uses
@@ -197,9 +225,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
 ## Limitations
 
 - One mail identity per deployment.
-- Plain-text message bodies and recipients are stored in the outbox volume.
+- Message bodies and recipients are stored unencrypted in the outbox volume.
 - No attachment download tool.
-- No HTML send body; outgoing content is plain text.
+- An HTML body is never rendered in the in-chat approval app; reviewing it
+  faithfully means opening the approval page in a browser.
 - No automatic retry after ambiguous delivery or move outcomes.
 - No deletion, Trash, spam classification, or autonomous sorting.
 - Sent-folder copies are optional because SMTP acceptance and IMAP append are

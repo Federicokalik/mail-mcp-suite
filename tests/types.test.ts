@@ -44,6 +44,36 @@ test('recipient policy enforces limit, allowlist and denylist', () => {
   );
 });
 
+test('schema accepts an html part alongside the text part', () => {
+  const message = OutgoingMessageSchema.parse({
+    to: ['recipient@example.com'],
+    subject: 'Subject',
+    text: 'Plain text fallback',
+    html: '<p>Rendered body</p>'
+  });
+  assert.equal(message.html, '<p>Rendered body</p>');
+  assert.equal(message.text, 'Plain text fallback');
+});
+
+test('schema still requires a text part when html is present', () => {
+  const result = OutgoingMessageSchema.safeParse({
+    to: ['recipient@example.com'],
+    subject: 'Subject',
+    html: '<p>Rendered body</p>'
+  });
+  assert.equal(result.success, false);
+});
+
+test('schema rejects an html part over the size limit', () => {
+  const result = OutgoingMessageSchema.safeParse({
+    to: ['recipient@example.com'],
+    subject: 'Subject',
+    text: 'Body',
+    html: 'x'.repeat(200_001)
+  });
+  assert.equal(result.success, false);
+});
+
 test('public view contains neither body nor Bcc', () => {
   const proposal: Proposal = {
     id: '2478a6a1-23ca-4f97-bfa7-74e9d50efca0',
@@ -61,13 +91,18 @@ test('public view contains neither body nor Bcc', () => {
       to: ['recipient@example.com'],
       bcc: ['hidden@example.com'],
       subject: 'Subject',
-      text: 'Secret in the body'
+      text: 'Secret in the body',
+      html: '<p>Secret in the html body</p>'
     }
   };
   const visible = publicProposal(proposal) as Record<string, unknown>;
   assert.equal('message' in visible, false);
   assert.equal('bcc' in visible, false);
   assert.equal(JSON.stringify(visible).includes('Secret in the body'), false);
+  assert.equal(
+    JSON.stringify(visible).includes('Secret in the html body'),
+    false
+  );
   assert.equal(JSON.stringify(visible).includes('hidden@example.com'), false);
 });
 

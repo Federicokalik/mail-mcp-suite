@@ -57,17 +57,26 @@ deterministico sono preferibili i filtri Sieve o del provider.
    `ALLOW_INSECURE_MAIL_TRANSPORT=false`.
 3. Generare i quattro segreti macchina in modo indipendente con un RNG crittografico.
 4. Usare un segreto umano di approvazione separato; non riutilizzare una password di posta o MCP.
-5. Tenere `local-config/`, i backup e i dati dell'outbox fuori da Git.
-6. Legare le porte pubblicate a `127.0.0.1`, salvo che sia richiesta una specifica interfaccia
+5. Non lasciare che il gestore password del browser memorizzi il segreto di
+   approvazione, e rifiutare la proposta di salvarlo. L'approvazione è l'unico
+   controllo che un agente che guida il browser non può soddisfare, perché il
+   segreto è la sola cosa del flusso che non è presente nell'ambiente. Un segreto
+   memorizzato viene ricompilato automaticamente nel modulo, e un modulo
+   ricompilato può essere inviato da qualunque cosa sappia cliccare. Entrambi i
+   moduli di approvazione dichiarano `autocomplete="new-password"` per evitare
+   che i gestori facciano corrispondenza, ma è un suggerimento al browser, non
+   una garanzia.
+6. Tenere `local-config/`, i backup e i dati dell'outbox fuori da Git.
+7. Legare le porte pubblicate a `127.0.0.1`, salvo che sia richiesta una specifica interfaccia
    fidata.
-7. Non inoltrare le porte dei servizi da un router.
-8. Per l'accesso da Internet, usare HTTPS, Cloudflare Tunnel e policy Access in
+8. Non inoltrare le porte dei servizi da un router.
+9. Per l'accesso da Internet, usare HTTPS, Cloudflare Tunnel e policy Access in
    default-deny.
-9. Abilitare Managed OAuth solo per gli endpoint MCP, non come sostituto del
-   segreto di approvazione.
-10. Limitare l'accesso al daemon Docker e ai backup.
-11. Rivedere i permessi degli strumenti sul client; gli strumenti con capacità di scrittura devono sempre chiedere conferma.
-12. Ruotare i segreti interessati dopo qualsiasi sospetta fuga di informazioni.
+10. Abilitare Managed OAuth solo per gli endpoint MCP, non come sostituto del
+    segreto di approvazione.
+11. Limitare l'accesso al daemon Docker e ai backup.
+12. Rivedere i permessi degli strumenti sul client; gli strumenti con capacità di scrittura devono sempre chiedere conferma.
+13. Ruotare i segreti interessati dopo qualsiasi sospetta fuga di informazioni.
 
 ## Autenticazione
 
@@ -148,6 +157,40 @@ l'elicitation, che è una richiesta iniziata dal server. Le sessioni hanno un
 tetto massimo e vengono eliminate quando restano inattive. Il Reader resta
 stateless.
 
+## Corpi dei messaggi in HTML
+
+Un invio può portare una parte `html` accanto alla parte `text` obbligatoria,
+oppure un template `mjml` che Actions compila. Tre proprietà impediscono che
+questo allarghi il confine di fiducia.
+
+**La compilazione avviene una volta sola, nel processo senza credenziali.**
+L'MJML viene compilato alla creazione della proposta, dentro Actions, e viene
+memorizzato solo l'HTML risultante. Il Worker detiene le credenziali SMTP e IMAP,
+il segreto di approvazione e la chiave CSRF; Actions non ne ha nessuna, quindi il
+parser che mastica markup semi-fidato gira dove un bug costa meno. Compilare una
+volta sola significa anche che l'HTML mostrato al momento dell'approvazione e
+quello consegnato a SMTP sono gli stessi byte, senza una seconda resa in mezzo.
+`mj-include` viene rifiutato, così un template non può leggere file dal container.
+
+**L'anteprima non può eseguire nulla né chiamare casa.**
+`/approval/:id/preview` serve il corpo come documento a sé sotto
+`default-src 'none'; style-src 'unsafe-inline'; img-src data:; ... sandbox`, in un
+frame con `sandbox=""`. Nessuno script viene eseguito, nessuna immagine, font o
+foglio di stile remoto viene caricato, e nessun modulo può essere inviato. Un
+pixel di tracciamento non può quindi segnalare che un messaggio è stato rivisto, e
+un beacon non può far trapelare l'URL di approvazione. Il frame è etichettato come
+anteprima con risorse remote bloccate, così le immagini mancanti non vengono
+scambiate per ciò che vedrà il destinatario.
+
+**L'app in chat non rende affatto l'HTML.** Dentro l'iframe dell'host la policy
+sui frame appartiene all'host, e un messaggio reso senza il suo foglio di stile
+somiglia comunque abbastanza a un messaggio da essere approvato a colpo d'occhio.
+L'app mostra la parte testuale, dichiara che l'HTML non è stato reso e rimanda
+alla pagina di approvazione.
+
+La parte testuale resta obbligatoria per lo stesso motivo: è una rappresentazione
+del messaggio che non può nascondere nulla dietro al markup.
+
 ## Dati persistenti
 
 `outbox.json` contiene body dei messaggi, destinatari, note delle proposte e metadati
@@ -216,7 +259,24 @@ Valutare gli advisory nel contesto, evitando però modifiche alle dipendenze che
 forzate senza test. Fissare le immagini base dei container e aggiornarle in modo intenzionale.
 Eseguire uno scanner di segreti sull'intera cronologia Git, non solo sull'albero corrente.
 
-Alla versione 3.0.0, `npm audit` riporta
+Alla versione 3.1.0, `mjml` è una dipendenza di produzione, ed è pesante: porta
+circa 200 pacchetti transitivi in un'immagine che prima ne aveva pochi.
+`npm audit --omit=dev` riporta
+[`GHSA-mh99-v99m-4gvg`](https://github.com/advisories/GHSA-mh99-v99m-4gvg)
+(`brace-expansion`, denial of service per espansione illimitata) molte volte. La
+ripetizione è un solo advisory contato una volta per ciascun sotto-pacchetto
+`mjml-*`: il percorso unico è `brace-expansion` → `minimatch` → `editorconfig` →
+`js-beautify` → `mjml-core`. `js-beautify` viene raggiunto solo quando si chiede
+a MJML di formattare l'output, e `src/actions/mjml.ts` compila con
+`beautify: false` e `minify: false`, quindi quel percorso non viene invocato.
+Nulla del corpo di un messaggio arriva a `brace-expansion`, che consuma pattern
+glob e non markup. Il rimedio proposto da npm è un downgrade a `mjml@5.1.0`: non
+applicarlo alla cieca. Rivalutare quando a monte `js-beautify` verrà sbloccato.
+Se questo compromesso smettesse di essere accettabile, la funzione degrada in
+modo pulito: togliere `mjml` lascia `html` funzionante e rimuove soltanto la
+compilazione dei template lato server.
+
+Sempre alla versione 3.1.0, `npm audit` riporta
 [`GHSA-frvp-7c67-39w9`](https://github.com/advisories/GHSA-frvp-7c67-39w9)
 attraverso la dipendenza di produzione dall'SDK MCP, raggiunta ora sia
 direttamente sia tramite `@modelcontextprotocol/ext-apps`. L'advisory riguarda il middleware

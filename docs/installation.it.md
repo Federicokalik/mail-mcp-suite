@@ -87,7 +87,7 @@ puntare `MAIL_MCP_IMAGE` al tag desiderato nel `.env` di root e saltare la build
 
 ```dotenv
 # .env
-MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.0.0
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.1.0
 ```
 
 ```sh

@@ -48,3 +48,9 @@ Esaminare ogni corrispondenza invece di eliminarla ciecamente.
 Contribuendo, si accetta che il proprio contributo sia rilasciato con licenza
 `AGPL-3.0-only`. Non inviare codice copiato da una fonte priva di una licenza
 compatibile o delle note di attribuzione conservate.
+
+`skills/` è l'unico punto che contiene materiale di terze parti, importato con
+`git subtree` e lasciato senza modifiche. Non modificare quei file: inviare la
+modifica a monte e riportarla indietro con un pull. Ogni voce presente lì è
+registrata in [ACKNOWLEDGEMENTS.it.md](ACKNOWLEDGEMENTS.it.md) con il proprio
+stato di licenza.

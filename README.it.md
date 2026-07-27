@@ -103,7 +103,7 @@ openssl rand -hex 32
 **3. Avvio.** Puntare `MAIL_MCP_IMAGE` nel `.env` a un'immagine pubblicata:
 
 ```dotenv
-MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.0.0
+MAIL_MCP_IMAGE=ghcr.io/federicokalik/mail-mcp-suite:3.1.0
 ```
 
 ```sh
@@ -157,6 +157,35 @@ credenziali, binding sulla LAN, backup e disinstallazione.
 Actions restituisce un URL di approvazione. L'operazione non diventa attiva finché
 l'utente non rivede la pagina e non inserisce il segreto di approvazione.
 
+## Messaggi HTML
+
+`mail_send` e `mail_schedule` accettano un corpo facoltativo oltre a `text`:
+
+| Campo | Effetto |
+|---|---|
+| `html` | Corpo HTML, inviato con `text` come `multipart/alternative` |
+| `mjml` | Template MJML, compilato in HTML da Actions; alternativo a `html` |
+
+`text` resta obbligatorio. È la parte che una persona può leggere senza renderer,
+è ciò che la pagina di approvazione mostra per primo, e mantiene il messaggio
+consegnato un `multipart/alternative` corretto.
+
+L'MJML viene compilato una sola volta, alla creazione della proposta, e viene
+memorizzato solo l'HTML risultante. Il messaggio rivisto al momento
+dell'approvazione e quello consegnato a SMTP sono quindi gli stessi byte. La
+compilazione avviene dentro Actions, che non possiede credenziali SMTP, IMAP o il
+segreto di approvazione: il Worker non analizza mai un template. `mj-include` è
+rifiutato, così un template non può leggere file dal server.
+
+La pagina di approvazione mostra l'HTML dentro un frame con `sandbox=""` e una
+policy che consente soltanto stili inline e immagini `data:`. Nessuno script
+viene eseguito e nessuna risorsa remota viene caricata, quindi un pixel di
+tracciamento non può segnalare che un messaggio è stato rivisto. I vuoti di
+layout dove starebbero le immagini remote sono attesi, e il frame lo dichiara.
+
+[`skills/framix-email-html-mjml`](skills/README.it.md) include una skill per
+comporre questi template in MJML.
+
 ## Accesso remoto e Claude
 
 Non esporre le porte HTTP direttamente su Internet. La configurazione consigliata usa
@@ -201,7 +230,8 @@ Consultare [CONTRIBUTING.it.md](CONTRIBUTING.it.md) prima di proporre modifiche.
 - Una sola identità di posta per deployment.
 - I body dei messaggi e i destinatari sono memorizzati in chiaro nel volume outbox.
 - Nessuno strumento di download degli allegati.
-- Nessun body HTML in invio; il contenuto in uscita è testo semplice.
+- Il body HTML non viene mai reso nell'app di approvazione in chat; per rivederlo
+  fedelmente occorre aprire la pagina di approvazione nel browser.
 - Nessun ritentativo automatico dopo esiti ambigui di consegna o spostamento.
 - Nessuna cancellazione, Cestino, classificazione dello spam o smistamento autonomo.
 - Le copie nella cartella Posta inviata sono facoltative perché l'accettazione SMTP e l'append IMAP sono

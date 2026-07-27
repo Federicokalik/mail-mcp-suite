@@ -42,12 +42,26 @@ const en = {
     sameSourceAndDestination: (uid: number) =>
       `Source and destination are the same for UID ${uid}.`,
     duplicateMessage: (mailbox: string, uid: number) =>
-      `Duplicate message in the proposal: ${mailbox} UID ${uid}.`
+      `Duplicate message in the proposal: ${mailbox} UID ${uid}.`,
+    htmlAndMjmlTogether: 'Provide either html or mjml, not both.',
+    mjmlIncludeNotAllowed:
+      'mj-include is not allowed: the template must be self-contained.',
+    mjmlCompileFailed: (reason: string) =>
+      `The MJML template did not compile: ${reason}`,
+    mjmlEmptyOutput: 'The MJML template compiled to an empty document.',
+    mjmlOutputTooLarge: (size: number, maximum: number) =>
+      `The compiled HTML is too large (${size} characters); the limit is ${maximum}.`
   },
 
   actions: {
     notASend: 'The requested proposal is not a send.',
     notAMove: 'The requested proposal is not a move.',
+    messageText:
+      'Plain-text body. Always required: it is what a person can review without a renderer, and it becomes the text part of the message.',
+    messageHtml:
+      'Optional HTML body, sent alongside the text part as multipart/alternative. Mutually exclusive with mjml.',
+    messageMjml:
+      'Optional MJML template, compiled to HTML on the server. It must be self-contained; mj-include is refused. Mutually exclusive with html.',
     send: {
       title: 'Propose an immediate send',
       description:
@@ -187,7 +201,16 @@ const en = {
     approveSchedule: 'Approve schedule',
     sendNow: 'Send now',
     cancelProposal: 'Cancel proposal',
-    secretPlaceholder: 'Approval secret',
+    secretLabel: 'Approval secret',
+    bodyTextTitle: 'Message — text version',
+    bodyHtmlTitle: 'Message — HTML preview',
+    htmlPreviewNotice:
+      'Preview only. Remote images and scripts are blocked, so the layout may show gaps.',
+    htmlNotRendered:
+      'The HTML version is not rendered here. Open the approval page in a browser to review it before approving.',
+    openApprovalPage: 'Open the approval page',
+    scheduledNotice:
+      'Approving now authorises the send at the scheduled time. There is no second check.',
     statusTitle: (status: string) => `Status — ${status}`,
     statusHeading: (status: string) => `Status: ${status}`,
     sendStatus: {
@@ -321,12 +344,26 @@ const it: typeof en = {
     sameSourceAndDestination: (uid: number) =>
       `Sorgente e destinazione coincidono per UID ${uid}.`,
     duplicateMessage: (mailbox: string, uid: number) =>
-      `Messaggio duplicato nella proposta: ${mailbox} UID ${uid}.`
+      `Messaggio duplicato nella proposta: ${mailbox} UID ${uid}.`,
+    htmlAndMjmlTogether: 'Fornisci html oppure mjml, non entrambi.',
+    mjmlIncludeNotAllowed:
+      'mj-include non è consentito: il template deve essere autosufficiente.',
+    mjmlCompileFailed: (reason: string) =>
+      `Il template MJML non compila: ${reason}`,
+    mjmlEmptyOutput: 'Il template MJML ha prodotto un documento vuoto.',
+    mjmlOutputTooLarge: (size: number, maximum: number) =>
+      `L’HTML compilato è troppo grande (${size} caratteri); il limite è ${maximum}.`
   },
 
   actions: {
     notASend: 'La proposta richiesta non è un invio.',
     notAMove: 'La proposta richiesta non è uno spostamento.',
+    messageText:
+      'Corpo in testo semplice. Sempre obbligatorio: è ciò che una persona può rivedere senza renderer, e diventa la parte testuale del messaggio.',
+    messageHtml:
+      'Corpo HTML facoltativo, inviato insieme alla parte testuale come multipart/alternative. Alternativo a mjml.',
+    messageMjml:
+      'Template MJML facoltativo, compilato in HTML dal server. Deve essere autosufficiente; mj-include viene rifiutato. Alternativo a html.',
     send: {
       title: 'Proponi invio immediato',
       description:
@@ -466,7 +503,16 @@ const it: typeof en = {
     approveSchedule: 'Approva programmazione',
     sendNow: 'Invia adesso',
     cancelProposal: 'Annulla proposta',
-    secretPlaceholder: 'Segreto di approvazione',
+    secretLabel: 'Segreto di approvazione',
+    bodyTextTitle: 'Messaggio — versione testo',
+    bodyHtmlTitle: 'Messaggio — anteprima HTML',
+    htmlPreviewNotice:
+      'Solo anteprima. Immagini remote e script sono bloccati, quindi il layout può presentare vuoti.',
+    htmlNotRendered:
+      'La versione HTML non è resa qui. Apri la pagina di approvazione nel browser per rivederla prima di approvare.',
+    openApprovalPage: 'Apri la pagina di approvazione',
+    scheduledNotice:
+      'Approvare adesso autorizza l’invio all’orario previsto. Non c’è un secondo controllo.',
     statusTitle: (status: string) => `Stato — ${status}`,
     statusHeading: (status: string) => `Stato: ${status}`,
     sendStatus: {
